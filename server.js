@@ -129,7 +129,7 @@ app.get('/api/download/:filename', (req, res) => {
   const fileData = metadata.find(m => m.filename === filename);
 
   if (fileData) {
-    const filePath = path.join(UPLOADS_DIR, fileData.safeFolder, filename);
+    const filePath = path.join(UPLOADS_DIR, fileData.safeFolder || '', filename);
     if (fs.existsSync(filePath)) {
       res.download(filePath, fileData.originalname);
     } else {
@@ -150,15 +150,15 @@ app.put('/api/files/:filename', (req, res) => {
   
   if (fileIndex !== -1) {
     const currentData = metadata[fileIndex];
-    let newSafeFolder = currentData.safeFolder;
-    let newFolder = currentData.folder;
+    let newSafeFolder = currentData.safeFolder || '';
+    let newFolder = currentData.folder || 'Misc';
 
     // Handle Folder Change / Physical Move
     if (folder && folder !== currentData.folder) {
       newFolder = folder;
       newSafeFolder = FOLDER_MAP[folder] || 'Misc';
       
-      const oldPath = path.join(UPLOADS_DIR, currentData.safeFolder, filename);
+      const oldPath = path.join(UPLOADS_DIR, currentData.safeFolder || '', filename);
       const newDirPath = path.join(UPLOADS_DIR, newSafeFolder);
       const newPath = path.join(newDirPath, filename);
 
@@ -200,7 +200,7 @@ function cleanUpResidue() {
   // 1. Remove metadata for physical files that don't exist
   const validMetadata = [];
   for (const m of metadata) {
-    const filePath = path.join(UPLOADS_DIR, m.safeFolder, m.filename);
+    const filePath = path.join(UPLOADS_DIR, m.safeFolder || '', m.filename);
     if (fs.existsSync(filePath)) {
       validMetadata.push(m);
     } else {
@@ -276,7 +276,7 @@ app.delete('/api/files/:filename', (req, res) => {
   
   if (fileIndex !== -1) {
     const fileData = metadata[fileIndex];
-    const filePath = path.join(UPLOADS_DIR, fileData.safeFolder, filename);
+    const filePath = path.join(UPLOADS_DIR, fileData.safeFolder || '', filename);
     
     // Remove from disk if exists, wrap in try-catch so metadata is still removed if physical delete fails
     try {
