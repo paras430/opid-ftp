@@ -140,21 +140,50 @@ app.get('/api/download/:filename', (req, res) => {
   }
 });
 
-// Edit file metadata (Project ID, Year, Remarks)
+// Edit file metadata (Project ID, Year, Remarks, Folder)
 app.put('/api/files/:filename', (req, res) => {
   const filename = req.params.filename;
-  const { projectId, year, remarks } = req.body;
+  const { projectId, year, remarks, folder } = req.body;
   
   const metadata = readMetadata();
   const fileIndex = metadata.findIndex(m => m.filename === filename);
   
   if (fileIndex !== -1) {
+    const currentData = metadata[fileIndex];
+    let newSafeFolder = currentData.safeFolder;
+    let newFolder = currentData.folder;
+
+    // Handle Folder Change / Physical Move
+    if (folder && folder !== currentData.folder) {
+      newFolder = folder;
+      newSafeFolder = FOLDER_MAP[folder] || 'Misc';
+      
+      const oldPath = path.join(UPLOADS_DIR, currentData.safeFolder, filename);
+      const newDirPath = path.join(UPLOADS_DIR, newSafeFolder);
+      const newPath = path.join(newDirPath, filename);
+
+      try {
+        if (!fs.existsSync(newDirPath)) {
+          fs.mkdirSync(newDirPath, { recursive: true });
+        }
+        if (fs.existsSync(oldPath)) {
+          fs.renameSync(oldPath, newPath);
+        }
+      } catch (err) {
+        console.error("Error moving file:", err);
+        return res.status(500).json({ error: 'Failed to move physical file.' });
+      }
+    }
+
     metadata[fileIndex] = {
-      ...metadata[fileIndex],
-      projectId: projectId !== undefined ? projectId : metadata[fileIndex].projectId,
-      year: year !== undefined ? year : metadata[fileIndex].year,
-      remarks: remarks !== undefined ? remarks : metadata[fileIndex].remarks
+      ...currentData,
+      projectId: projectId !== undefined ? projectId : currentData.projectId,
+      year: year !== undefined ? year : currentData.year,
+      remarks: remarks !== undefined ? remarks : currentData.remarks,
+      folder: newFolder,
+      safeFolder: newSafeFolder
     };
+    
     writeMetadata(metadata);
     res.json({ message: 'Metadata updated successfully', file: metadata[fileIndex] });
   } else {

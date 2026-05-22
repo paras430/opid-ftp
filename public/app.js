@@ -4,7 +4,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const moonIcon = document.getElementById('moon-icon');
     const sunIcon = document.getElementById('sun-icon');
     
-    // Check saved theme
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
     updateThemeIcon(savedTheme);
@@ -26,6 +25,28 @@ document.addEventListener('DOMContentLoaded', () => {
             sunIcon.style.display = 'none';
         }
     }
+
+    // Folders Definition
+    const FOLDERS = [
+        { name: 'Contract/PAT docs', color: 'var(--c-purple)' },
+        { name: 'Network', color: 'var(--c-blue)' },
+        { name: 'Equipment', color: 'var(--c-green)' },
+        { name: 'Letter/MOMs/Reports', color: 'var(--c-orange)' },
+        { name: 'Images', color: 'var(--c-pink)' },
+        { name: 'Misc', color: 'var(--c-gray)' }
+    ];
+
+    // State
+    let allFiles = [];
+    let currentActiveFolder = null; // null means 'All Files'
+    
+    // UI Elements
+    const filesBody = document.getElementById('files-body');
+    const searchInput = document.getElementById('search-input');
+    const dashboardGrid = document.getElementById('dashboard-grid');
+    const tableTitle = document.getElementById('table-title');
+    const colFolder = document.getElementById('col-folder');
+    const folderDropdownTemplate = document.getElementById('folder-dropdown-template');
 
     // File Upload
     const uploadForm = document.getElementById('upload-form');
@@ -59,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 showStatus('File uploaded successfully!', 'success');
                 uploadForm.reset();
-                loadFiles(); // Refresh table
+                loadFiles(); // Refresh table and dashboard
             } else {
                 showStatus(result.error || 'Upload failed.', 'error');
             }
@@ -82,21 +103,94 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { uploadStatus.textContent = ''; }, 5000);
     }
 
-    // Load and Display Files
-    let allFiles = [];
-    const filesBody = document.getElementById('files-body');
-    const searchInput = document.getElementById('search-input');
-
+    // Load Files Data
     async function loadFiles() {
         try {
             const response = await fetch('/api/files');
             allFiles = await response.json();
-            renderFiles(allFiles);
+            allFiles.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
+            
+            renderDashboard();
+            applyCurrentFilter();
         } catch (error) {
             console.error('Error loading files:', error);
             filesBody.innerHTML = '<tr><td colspan="7" class="empty-state">Failed to load files.</td></tr>';
         }
     }
+
+    // Render Dashboard Cards
+    function renderDashboard() {
+        dashboardGrid.innerHTML = '';
+        
+        FOLDERS.forEach(folder => {
+            const count = allFiles.filter(f => f.folder === folder.name).length;
+            
+            const card = document.createElement('div');
+            card.className = `folder-card ${currentActiveFolder === folder.name ? 'active' : ''}`;
+            
+            card.innerHTML = `
+                <svg class="folder-icon" viewBox="0 0 24 24" fill="none" stroke="${folder.color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <div class="folder-title">${escapeHtml(folder.name)}</div>
+                <div class="folder-count">${count} file${count !== 1 ? 's' : ''}</div>
+            `;
+            
+            card.addEventListener('click', () => {
+                // If already active, toggle off (show all)
+                if (currentActiveFolder === folder.name) {
+                    currentActiveFolder = null;
+                } else {
+                    currentActiveFolder = folder.name;
+                    searchInput.value = ''; // Clear search when clicking a folder
+                }
+                renderDashboard(); // Re-render to update active styling
+                applyCurrentFilter();
+            });
+            
+            dashboardGrid.appendChild(card);
+        });
+    }
+
+    // Apply Filter based on Folder selection or Global Search
+    function applyCurrentFilter() {
+        const query = searchInput.value.toLowerCase().trim();
+        
+        // If there's a search query, it overrides the folder filter globally
+        let filteredFiles = allFiles;
+        
+        if (query) {
+            currentActiveFolder = null; // Reset folder selection implicitly
+            renderDashboard(); // remove active state from cards
+            
+            tableTitle.textContent = `Search Results for "${query}"`;
+            colFolder.classList.remove('hidden'); // Show folder column
+            
+            filteredFiles = allFiles.filter(file => 
+                file.originalname.toLowerCase().includes(query) ||
+                file.projectId.toLowerCase().includes(query) ||
+                file.year.toString().includes(query) ||
+                file.remarks.toLowerCase().includes(query) ||
+                file.format.toLowerCase().includes(query) ||
+                file.folder.toLowerCase().includes(query)
+            );
+        } else if (currentActiveFolder) {
+            tableTitle.textContent = `${currentActiveFolder}`;
+            colFolder.classList.add('hidden'); // Hide folder column
+            
+            filteredFiles = allFiles.filter(f => f.folder === currentActiveFolder);
+        } else {
+            tableTitle.textContent = `All Files`;
+            colFolder.classList.remove('hidden'); // Show folder column
+        }
+
+        renderTable(filteredFiles);
+    }
+
+    // Handle Search Input
+    searchInput.addEventListener('input', () => {
+        applyCurrentFilter();
+    });
 
     // Function to format date and time
     function formatDateTime(isoString) {
@@ -104,36 +198,39 @@ document.addEventListener('DOMContentLoaded', () => {
         return date.toLocaleString();
     }
 
-    function renderFiles(files) {
+    function renderTable(files) {
         filesBody.innerHTML = '';
         
         if (files.length === 0) {
-            filesBody.innerHTML = '<tr><td colspan="7" class="empty-state">No files found.</td></tr>';
+            filesBody.innerHTML = `<tr><td colspan="${currentActiveFolder ? '6' : '7'}" class="empty-state">No files found.</td></tr>`;
             return;
         }
-
-        // Sort files by date descending
-        files.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
 
         files.forEach(file => {
             const tr = document.createElement('tr');
             tr.setAttribute('data-filename', file.filename);
             
-            // Format size for display
             const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
             const viewUrl = `/uploads/${file.safeFolder}/${file.filename}`;
             const downloadUrl = `/api/download/${file.filename}`;
             
+            // Build the folder dropdown for edit mode
+            const folderSelectClone = folderDropdownTemplate.content.cloneNode(true);
+            const folderSelectElement = folderSelectClone.querySelector('select');
+            folderSelectElement.value = file.folder; // Set current folder
+
             tr.innerHTML = `
                 <td>
                     <div style="font-weight: 500; word-break: break-all;">${escapeHtml(file.originalname)}</div>
                     <div style="font-size: 0.75rem; color: var(--text-muted)">${sizeMB} MB</div>
                     <span class="format-badge">${escapeHtml(file.format)}</span>
                 </td>
-                <td>${escapeHtml(file.folder)}</td>
+                <td class="cell-folder ${currentActiveFolder ? 'hidden' : ''}">
+                    <span class="view-mode">${escapeHtml(file.folder)}</span>
+                    <div class="edit-folder-wrapper"></div>
+                </td>
                 <td style="font-size: 0.85rem">${formatDateTime(file.uploadDate)}</td>
                 
-                <!-- Editable Cells -->
                 <td class="cell-project">
                     <span class="view-mode">${escapeHtml(file.projectId)}</span>
                     <input type="text" class="edit-input hidden edit-project" value="${escapeHtml(file.projectId)}">
@@ -159,6 +256,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </td>
             `;
+            
+            // Append the cloned dropdown template
+            tr.querySelector('.edit-folder-wrapper').appendChild(folderSelectElement);
+            
             filesBody.appendChild(tr);
 
             // Add Event Listeners for this row
@@ -196,32 +297,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const newProject = tr.querySelector('.edit-project').value;
         const newYear = tr.querySelector('.edit-year').value;
         const newRemarks = tr.querySelector('.edit-remarks').value;
+        const newFolder = tr.querySelector('.edit-folder').value;
 
-        // Update UI optimistically
-        tr.querySelector('.cell-project .view-mode').textContent = newProject;
-        tr.querySelector('.cell-year .view-mode').textContent = newYear;
-        tr.querySelector('.cell-remarks .view-mode').textContent = newRemarks;
-        
         toggleEditMode(tr, false);
 
         try {
             const response = await fetch(`/api/files/${filename}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId: newProject, year: newYear, remarks: newRemarks })
+                body: JSON.stringify({ projectId: newProject, year: newYear, remarks: newRemarks, folder: newFolder })
             });
 
             if (!response.ok) {
                 throw new Error('Failed to save');
             }
             
-            // Update local state quietly
-            const fileIndex = allFiles.findIndex(f => f.filename === filename);
-            if(fileIndex > -1) {
-                allFiles[fileIndex].projectId = newProject;
-                allFiles[fileIndex].year = newYear;
-                allFiles[fileIndex].remarks = newRemarks;
-            }
+            // Reload all files from server because physical moving and safe folder mapping happens backend
+            loadFiles();
 
         } catch (error) {
             console.error('Error saving edits:', error);
@@ -241,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (response.ok) {
-                loadFiles(); // Refresh table
+                loadFiles(); // Refresh table and dashboard counts
             } else {
                 const res = await response.json();
                 alert(res.error || 'Failed to delete file.');
@@ -251,20 +343,6 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('An error occurred while deleting the file.');
         }
     }
-
-    // Search functionality
-    searchInput.addEventListener('input', (e) => {
-        const query = e.target.value.toLowerCase();
-        const filteredFiles = allFiles.filter(file => 
-            file.originalname.toLowerCase().includes(query) ||
-            file.projectId.toLowerCase().includes(query) ||
-            file.year.toString().includes(query) ||
-            file.remarks.toLowerCase().includes(query) ||
-            file.format.toLowerCase().includes(query) ||
-            file.folder.toLowerCase().includes(query)
-        );
-        renderFiles(filteredFiles);
-    });
 
     // Helper to prevent XSS
     function escapeHtml(unsafe) {
