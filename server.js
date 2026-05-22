@@ -191,6 +191,83 @@ app.put('/api/files/:filename', (req, res) => {
   }
 });
 
+// Clean up orphaned files and metadata
+function cleanUpResidue() {
+  console.log('Running residue cleanup...');
+  const metadata = readMetadata();
+  let metadataModified = false;
+  
+  // 1. Remove metadata for physical files that don't exist
+  const validMetadata = [];
+  for (const m of metadata) {
+    const filePath = path.join(UPLOADS_DIR, m.safeFolder, m.filename);
+    if (fs.existsSync(filePath)) {
+      validMetadata.push(m);
+    } else {
+      console.log(`Removing orphaned metadata for missing file: ${m.filename}`);
+      metadataModified = true;
+    }
+  }
+  
+  if (metadataModified) {
+    writeMetadata(validMetadata);
+  }
+
+  // 2. Remove physical files that aren't in metadata
+  const metadataFilenames = new Set(validMetadata.map(m => m.filename));
+  const foldersToScan = Object.values(FOLDER_MAP);
+  foldersToScan.push('Misc'); // Ensure Misc is checked if it was somehow skipped
+  
+  // Create a Set of unique folders
+  const uniqueFolders = [...new Set(foldersToScan)];
+  
+  for (const folder of uniqueFolders) {
+    const folderPath = path.join(UPLOADS_DIR, folder);
+    if (fs.existsSync(folderPath)) {
+      const files = fs.readdirSync(folderPath);
+      for (const file of files) {
+        if (!metadataFilenames.has(file)) {
+          const filePath = path.join(folderPath, file);
+          console.log(`Removing orphaned physical file: ${filePath}`);
+          try {
+            fs.unlinkSync(filePath);
+          } catch (e) {
+            console.error(`Failed to remove orphaned file ${filePath}:`, e);
+          }
+        }
+      }
+    }
+  }
+  
+  // Also scan the root UPLOADS_DIR for old files not in subfolders
+  const rootFiles = fs.readdirSync(UPLOADS_DIR).filter(item => {
+    const fullPath = path.join(UPLOADS_DIR, item);
+    return fs.statSync(fullPath).isFile() && item !== 'metadata.json';
+  });
+  
+  for (const file of rootFiles) {
+    if (!metadataFilenames.has(file)) {
+      const filePath = path.join(UPLOADS_DIR, file);
+      console.log(`Removing orphaned physical file in root: ${filePath}`);
+      try {
+        fs.unlinkSync(filePath);
+      } catch (e) {
+        console.error(`Failed to remove orphaned file ${filePath}:`, e);
+      }
+    }
+  }
+  console.log('Residue cleanup finished.');
+}
+
+// Call on startup
+cleanUpResidue();
+
+// Endpoint to manually trigger cleanup
+app.post('/api/cleanup', (req, res) => {
+  cleanUpResidue();
+  res.json({ message: 'Cleanup complete' });
+});
+
 // Delete a file
 app.delete('/api/files/:filename', (req, res) => {
   const filename = req.params.filename;
@@ -201,16 +278,20 @@ app.delete('/api/files/:filename', (req, res) => {
     const fileData = metadata[fileIndex];
     const filePath = path.join(UPLOADS_DIR, fileData.safeFolder, filename);
     
-    // Remove from disk if exists
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    // Remove from disk if exists, wrap in try-catch so metadata is still removed if physical delete fails
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (err) {
+      console.error(`Failed to delete physical file ${filePath} but removing metadata anyway:`, err);
     }
     
-    // Remove from metadata
+    // Remove from metadata unconditionally so UI stays clean
     metadata.splice(fileIndex, 1);
     writeMetadata(metadata);
     
-    res.json({ message: 'File deleted successfully' });
+    res.json({ message: 'File processed for deletion successfully' });
   } else {
     res.status(404).json({ error: 'File metadata not found' });
   }
