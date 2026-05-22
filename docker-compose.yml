@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  ftp-app:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ftp-uploads:/app/uploads
+    restart: unless-stopped
+
+volumes:
+  ftp-uploads:
