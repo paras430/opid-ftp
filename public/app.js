@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { name: 'Contract/PAT docs', color: 'var(--c-purple)' },
         { name: 'Network', color: 'var(--c-blue)' },
         { name: 'Equipment', color: 'var(--c-green)' },
-        { name: 'Letter/MOMs/Reports', color: 'var(--c-orange)' },
+        { name: 'Letter/MOM/Report', color: 'var(--c-orange)' },
         { name: 'Images', color: 'var(--c-pink)' },
         { name: 'Misc', color: 'var(--c-gray)' }
     ];
@@ -226,8 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
             
-            const safeF = file.safeFolder ? encodeURIComponent(file.safeFolder) + '/' : '';
-            const viewUrl = `/uploads/${safeF}${encodeURIComponent(file.filename)}`;
+            const viewUrl = `/api/view/${encodeURIComponent(file.filename)}`;
             const downloadUrl = `/api/download/${encodeURIComponent(file.filename)}`;
             
             // Build the folder dropdown for edit mode
