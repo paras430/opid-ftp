@@ -47,6 +47,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableTitle = document.getElementById('table-title');
     const colFolder = document.getElementById('col-folder');
     const folderDropdownTemplate = document.getElementById('folder-dropdown-template');
+    const btnBack = document.getElementById('btn-back');
+
+    btnBack.addEventListener('click', () => {
+        currentActiveFolder = null;
+        searchInput.value = '';
+        renderDashboard();
+        applyCurrentFilter();
+    });
 
     // File Upload
     const uploadForm = document.getElementById('upload-form');
@@ -165,6 +173,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             tableTitle.textContent = `Search Results for "${query}"`;
             colFolder.classList.remove('hidden'); // Show folder column
+            dashboardGrid.classList.add('hidden');
+            btnBack.classList.remove('hidden');
             
             filteredFiles = allFiles.filter(file => 
                 file.originalname.toLowerCase().includes(query) ||
@@ -177,11 +187,15 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (currentActiveFolder) {
             tableTitle.textContent = `${currentActiveFolder}`;
             colFolder.classList.add('hidden'); // Hide folder column
+            dashboardGrid.classList.add('hidden');
+            btnBack.classList.remove('hidden');
             
             filteredFiles = allFiles.filter(f => f.folder === currentActiveFolder);
         } else {
             tableTitle.textContent = `All Files`;
             colFolder.classList.remove('hidden'); // Show folder column
+            dashboardGrid.classList.remove('hidden');
+            btnBack.classList.add('hidden');
         }
 
         renderTable(filteredFiles);
@@ -202,17 +216,19 @@ document.addEventListener('DOMContentLoaded', () => {
         filesBody.innerHTML = '';
         
         if (files.length === 0) {
-            filesBody.innerHTML = `<tr><td colspan="${currentActiveFolder ? '6' : '7'}" class="empty-state">No files found.</td></tr>`;
+            filesBody.innerHTML = `<tr><td colspan="${currentActiveFolder ? '7' : '8'}" class="empty-state">No files found.</td></tr>`;
             return;
         }
 
-        files.forEach(file => {
+        files.forEach((file, index) => {
             const tr = document.createElement('tr');
             tr.setAttribute('data-filename', file.filename);
             
             const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-            const viewUrl = `/uploads/${file.safeFolder}/${file.filename}`;
-            const downloadUrl = `/api/download/${file.filename}`;
+            
+            const safeF = file.safeFolder ? encodeURIComponent(file.safeFolder) + '/' : '';
+            const viewUrl = `/uploads/${safeF}${encodeURIComponent(file.filename)}`;
+            const downloadUrl = `/api/download/${encodeURIComponent(file.filename)}`;
             
             // Build the folder dropdown for edit mode
             const folderSelectClone = folderDropdownTemplate.content.cloneNode(true);
@@ -220,6 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
             folderSelectElement.value = file.folder; // Set current folder
 
             tr.innerHTML = `
+                <td>${index + 1}</td>
                 <td>
                     <div style="font-weight: 500; word-break: break-all;">${escapeHtml(file.originalname)}</div>
                     <div style="font-size: 0.75rem; color: var(--text-muted)">${sizeMB} MB</div>
