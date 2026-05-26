@@ -118,14 +118,8 @@ async function migrateJsonToSqlite() {
 // Multer configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const rawFolder = req.body.folder || 'Misc';
-    const safeFolder = FOLDER_MAP[rawFolder] || 'Misc';
-    const folderPath = path.join(UPLOADS_DIR, safeFolder);
-    
-    if (!fs.existsSync(folderPath)) {
-      fs.mkdirSync(folderPath, { recursive: true });
-    }
-    cb(null, folderPath);
+    // Save to root uploads dir temporarily because req.body is not fully parsed yet
+    cb(null, UPLOADS_DIR);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -162,6 +156,16 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   let folder = req.body.folder || 'Misc';
   if (folder === 'Letter/MOMs/Reports') folder = 'Letter/MOM/Report'; // fallback for old UI caches
   const safeFolder = FOLDER_MAP[folder] || 'Misc';
+  
+  // Now that we have the parsed req.body, move the file to the correct folder
+  const folderPath = path.join(UPLOADS_DIR, safeFolder);
+  if (!fs.existsSync(folderPath)) {
+    fs.mkdirSync(folderPath, { recursive: true });
+  }
+  const tempPath = req.file.path;
+  const finalPath = path.join(folderPath, req.file.filename);
+  fs.renameSync(tempPath, finalPath);
+
   const ext = path.extname(req.file.originalname).toLowerCase().replace('.', '');
   const format = ext || 'unknown';
 
