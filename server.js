@@ -15,10 +15,21 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 }
 
 // Log Authentication Status
-if (process.env.APP_USERNAME && process.env.APP_PASSWORD) {
-  console.log(`Basic Authentication is ENABLED for user: ${process.env.APP_USERNAME}`);
+let configuredUsers = [];
+if (process.env.APP_USERS) {
+  const pairs = process.env.APP_USERS.split(',');
+  for (const pair of pairs) {
+    const [u, p] = pair.split(':');
+    if (u && p) configuredUsers.push(u.trim());
+  }
+} else if (process.env.APP_USERNAME && process.env.APP_PASSWORD) {
+  configuredUsers.push(process.env.APP_USERNAME.trim());
+}
+
+if (configuredUsers.length > 0) {
+  console.log(`Basic Authentication is ENABLED for users: ${configuredUsers.join(', ')}`);
 } else {
-  console.log(`WARNING: Basic Authentication is DISABLED. APP_USERNAME or APP_PASSWORD missing from .env`);
+  console.log(`WARNING: Basic Authentication is DISABLED. No credentials found in .env`);
 }
 
 // Map frontend folder names to safe physical directory names
@@ -142,15 +153,27 @@ const upload = multer({
 
 // Basic Authentication Middleware
 function basicAuth(req, res, next) {
-  // If credentials are not set in .env, skip authentication
-  if (!process.env.APP_USERNAME || !process.env.APP_PASSWORD) {
+  let users = {};
+  
+  if (process.env.APP_USERS) {
+    const pairs = process.env.APP_USERS.split(',');
+    for (const pair of pairs) {
+      const [u, p] = pair.split(':');
+      if (u && p) users[u.trim()] = p.trim();
+    }
+  } else if (process.env.APP_USERNAME && process.env.APP_PASSWORD) {
+    users[process.env.APP_USERNAME.trim()] = process.env.APP_PASSWORD.trim();
+  }
+
+  // If no credentials configured, skip auth
+  if (Object.keys(users).length === 0) {
     return next();
   }
 
   const b64auth = (req.headers.authorization || '').split(' ')[1] || '';
   const [login, password] = Buffer.from(b64auth, 'base64').toString().split(':');
 
-  if (login && password && login === process.env.APP_USERNAME && password === process.env.APP_PASSWORD) {
+  if (login && password && users[login] && users[login] === password) {
     return next();
   }
 
