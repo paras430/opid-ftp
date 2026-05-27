@@ -14,6 +14,13 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
+// Log Authentication Status
+if (process.env.APP_USERNAME && process.env.APP_PASSWORD) {
+  console.log(`Basic Authentication is ENABLED for user: ${process.env.APP_USERNAME}`);
+} else {
+  console.log(`WARNING: Basic Authentication is DISABLED. APP_USERNAME or APP_PASSWORD missing from .env`);
+}
+
 // Map frontend folder names to safe physical directory names
 const FOLDER_MAP = {
   'Contract/PAT docs': 'Contract_PAT_docs',
