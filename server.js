@@ -65,6 +65,9 @@ const db = new sqlite3.Database(DB_FILE, (err) => {
       if (err) {
         console.error('Error creating table:', err.message);
       } else {
+        db.run("UPDATE files SET projectId = ''", (err) => {
+           if (err) console.error("Error wiping projectId:", err.message);
+        });
         migrateJsonToSqlite();
       }
     });

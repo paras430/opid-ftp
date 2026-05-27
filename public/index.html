@@ -41,10 +41,6 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="project-id">Tag</label>
-                            <input type="text" id="project-id" name="projectId" placeholder="e.g. PRJ-101 (Compulsory)" required>
-                        </div>
-                        <div class="form-group">
                             <label for="year">Year</label>
                             <input type="number" id="year" name="year" placeholder="e.g. 2024 (Optional)">
                         </div>
@@ -71,7 +67,7 @@
                 <div class="glass-panel mt-2" id="table-panel">
                     <div class="files-header">
                         <div style="display: flex; align-items: center; gap: 1rem;">
-                            <button id="btn-back" class="action-btn btn-primary-outline hidden" style="padding: 0.5rem 1rem;">
+                            <button id="btn-back" class="action-btn btn-primary-outline hidden" style="padding: 0.75rem 1.5rem; font-size: 1rem; border-width: 2px; font-weight: 600; border-radius: 8px;">
                                 &larr; Back to Folders
                             </button>
                             <h2 id="table-title" style="margin-bottom: 0;">All Files</h2>
@@ -82,15 +78,21 @@
                         </div>
                     </div>
 
+                    <div class="bulk-actions" id="bulk-actions" style="margin-bottom: 1rem; display: flex; gap: 0.5rem;">
+                        <button id="btn-bulk-edit" class="action-btn btn-primary-outline" disabled>Edit Selected</button>
+                        <button id="btn-bulk-save" class="action-btn btn-success-outline hidden">Save Changes</button>
+                        <button id="btn-bulk-delete" class="action-btn btn-danger-outline" disabled>Delete Selected</button>
+                    </div>
+
                     <div class="table-container">
                         <table id="files-table">
                             <thead>
                                 <tr>
+                                    <th style="width: 40px;"><input type="checkbox" id="select-all"></th>
                                     <th>S.N.</th>
                                     <th>Name / Format</th>
                                     <th id="col-folder">Folder</th>
                                     <th>Upload Date</th>
-                                    <th>Tag</th>
                                     <th>Year</th>
                                     <th>Remarks</th>
                                     <th>Actions</th>
@@ -102,6 +104,9 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                    <div id="pagination-container" style="text-align: center; margin-top: 1rem; margin-bottom: 1rem;">
+                        <button id="btn-load-more" class="action-btn btn-primary-outline hidden" style="padding: 0.75rem 2rem; font-weight: 600;">Load More Files</button>
                     </div>
                 </div>
             </section>

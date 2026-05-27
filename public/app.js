@@ -39,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // State
     let allFiles = [];
     let currentActiveFolder = null; // null means 'All Files'
+    let visibleCount = 5;
     
     // UI Elements
     const filesBody = document.getElementById('files-body');
@@ -48,12 +49,90 @@ document.addEventListener('DOMContentLoaded', () => {
     const colFolder = document.getElementById('col-folder');
     const folderDropdownTemplate = document.getElementById('folder-dropdown-template');
     const btnBack = document.getElementById('btn-back');
+    const btnLoadMore = document.getElementById('btn-load-more');
 
     btnBack.addEventListener('click', () => {
         currentActiveFolder = null;
         searchInput.value = '';
+        visibleCount = 5;
         renderDashboard();
         applyCurrentFilter();
+    });
+
+    btnLoadMore.addEventListener('click', () => {
+        visibleCount += 5;
+        applyCurrentFilter();
+    });
+
+    // Bulk Actions Elements
+    const selectAll = document.getElementById('select-all');
+    const btnBulkEdit = document.getElementById('btn-bulk-edit');
+    const btnBulkSave = document.getElementById('btn-bulk-save');
+    const btnBulkDelete = document.getElementById('btn-bulk-delete');
+
+    selectAll.addEventListener('change', (e) => {
+        const checkboxes = document.querySelectorAll('.row-checkbox');
+        checkboxes.forEach(cb => cb.checked = e.target.checked);
+        updateBulkButtons();
+    });
+
+    function updateBulkButtons() {
+        const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+        const count = checkboxes.length;
+        btnBulkEdit.disabled = count === 0;
+        btnBulkDelete.disabled = count === 0;
+    }
+
+    btnBulkEdit.addEventListener('click', () => {
+        const checked = document.querySelectorAll('.row-checkbox:checked');
+        checked.forEach(cb => {
+            const tr = cb.closest('tr');
+            toggleEditMode(tr, true);
+        });
+        btnBulkEdit.classList.add('hidden');
+        btnBulkSave.classList.remove('hidden');
+    });
+
+    btnBulkSave.addEventListener('click', async () => {
+        const checked = document.querySelectorAll('.row-checkbox:checked');
+        let allOk = true;
+        
+        for (const cb of checked) {
+            const tr = cb.closest('tr');
+            const filename = cb.value;
+            const newYear = tr.querySelector('.edit-year').value;
+            const newRemarks = tr.querySelector('.edit-remarks').value;
+            const newFolder = tr.querySelector('.edit-folder').value;
+
+            try {
+                const response = await fetch(`/api/files/${filename}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ year: newYear, remarks: newRemarks, folder: newFolder })
+                });
+                if (!response.ok) allOk = false;
+            } catch (error) {
+                allOk = false;
+            }
+        }
+        
+        btnBulkEdit.classList.remove('hidden');
+        btnBulkSave.classList.add('hidden');
+        selectAll.checked = false;
+        
+        if (!allOk) alert('Some files failed to save.');
+        loadFiles();
+    });
+
+    btnBulkDelete.addEventListener('click', async () => {
+        const checked = document.querySelectorAll('.row-checkbox:checked');
+        if (!confirm(`Are you sure you want to delete ${checked.length} files?`)) return;
+
+        for (const cb of checked) {
+            await fetch(`/api/files/${cb.value}`, { method: 'DELETE' });
+        }
+        selectAll.checked = false;
+        loadFiles();
     });
 
     // File Upload
@@ -122,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
             applyCurrentFilter();
         } catch (error) {
             console.error('Error loading files:', error);
-            filesBody.innerHTML = '<tr><td colspan="7" class="empty-state">Failed to load files.</td></tr>';
+            filesBody.innerHTML = '<tr><td colspan="8" class="empty-state">Failed to load files.</td></tr>';
         }
     }
 
@@ -145,14 +224,14 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             
             card.addEventListener('click', () => {
-                // If already active, toggle off (show all)
+                visibleCount = 5;
                 if (currentActiveFolder === folder.name) {
                     currentActiveFolder = null;
                 } else {
                     currentActiveFolder = folder.name;
-                    searchInput.value = ''; // Clear search when clicking a folder
+                    searchInput.value = '';
                 }
-                renderDashboard(); // Re-render to update active styling
+                renderDashboard();
                 applyCurrentFilter();
             });
             
@@ -164,21 +243,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function applyCurrentFilter() {
         const query = searchInput.value.toLowerCase().trim();
         
-        // If there's a search query, it overrides the folder filter globally
         let filteredFiles = allFiles;
         
         if (query) {
-            currentActiveFolder = null; // Reset folder selection implicitly
-            renderDashboard(); // remove active state from cards
+            currentActiveFolder = null; 
+            renderDashboard(); 
             
             tableTitle.textContent = `Search Results for "${query}"`;
-            colFolder.classList.remove('hidden'); // Show folder column
+            colFolder.classList.remove('hidden'); 
             dashboardGrid.classList.add('hidden');
             btnBack.classList.remove('hidden');
             
             filteredFiles = allFiles.filter(file => 
                 file.originalname.toLowerCase().includes(query) ||
-                file.projectId.toLowerCase().includes(query) ||
                 file.year.toString().includes(query) ||
                 file.remarks.toLowerCase().includes(query) ||
                 file.format.toLowerCase().includes(query) ||
@@ -186,27 +263,32 @@ document.addEventListener('DOMContentLoaded', () => {
             );
         } else if (currentActiveFolder) {
             tableTitle.textContent = `${currentActiveFolder}`;
-            colFolder.classList.add('hidden'); // Hide folder column
+            colFolder.classList.add('hidden'); 
             dashboardGrid.classList.add('hidden');
             btnBack.classList.remove('hidden');
             
             filteredFiles = allFiles.filter(f => f.folder === currentActiveFolder);
         } else {
             tableTitle.textContent = `All Files`;
-            colFolder.classList.remove('hidden'); // Show folder column
+            colFolder.classList.remove('hidden'); 
             dashboardGrid.classList.remove('hidden');
             btnBack.classList.add('hidden');
         }
 
-        renderTable(filteredFiles);
+        if (filteredFiles.length > visibleCount) {
+            btnLoadMore.classList.remove('hidden');
+            renderTable(filteredFiles.slice(0, visibleCount));
+        } else {
+            btnLoadMore.classList.add('hidden');
+            renderTable(filteredFiles);
+        }
     }
 
-    // Handle Search Input
     searchInput.addEventListener('input', () => {
+        visibleCount = 5;
         applyCurrentFilter();
     });
 
-    // Function to format date and time
     function formatDateTime(isoString) {
         const date = new Date(isoString);
         return date.toLocaleString();
@@ -215,6 +297,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderTable(files) {
         filesBody.innerHTML = '';
         
+        // Reset top-level buttons
+        selectAll.checked = false;
+        updateBulkButtons();
+        btnBulkEdit.classList.remove('hidden');
+        btnBulkSave.classList.add('hidden');
+
         if (files.length === 0) {
             filesBody.innerHTML = `<tr><td colspan="${currentActiveFolder ? '7' : '8'}" class="empty-state">No files found.</td></tr>`;
             return;
@@ -235,6 +323,7 @@ document.addEventListener('DOMContentLoaded', () => {
             folderSelectElement.value = file.folder; // Set current folder
 
             tr.innerHTML = `
+                <td><input type="checkbox" class="row-checkbox" value="${escapeHtml(file.filename)}"></td>
                 <td>${index + 1}</td>
                 <td>
                     <div style="font-weight: 500; word-break: break-all;">${escapeHtml(file.originalname)}</div>
@@ -246,11 +335,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="edit-folder-wrapper"></div>
                 </td>
                 <td style="font-size: 0.85rem">${formatDateTime(file.uploadDate)}</td>
-                
-                <td class="cell-project">
-                    <span class="view-mode">${escapeHtml(file.projectId)}</span>
-                    <input type="text" class="edit-input hidden edit-project" value="${escapeHtml(file.projectId)}">
-                </td>
                 <td class="cell-year">
                     <span class="view-mode">${escapeHtml(file.year)}</span>
                     <input type="number" class="edit-input hidden edit-year" value="${escapeHtml(file.year)}">
@@ -259,108 +343,41 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="view-mode">${escapeHtml(file.remarks)}</span>
                     <input type="text" class="edit-input hidden edit-remarks" value="${escapeHtml(file.remarks)}">
                 </td>
-                
                 <td>
                     <div class="actions-group">
-                        <button class="action-btn btn-primary-outline btn-edit">Edit</button>
-                        <button class="action-btn btn-success-outline btn-save hidden">Save</button>
-                        <a href="${viewUrl}" target="_blank" class="action-btn btn-primary-outline">View</a>
-                        <a href="${downloadUrl}" download="${escapeHtml(file.originalname)}" class="action-btn btn-primary-outline">Download</a>
-                        <button class="action-btn btn-danger-outline btn-delete">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path></svg>
-                        </button>
+                        <a href="${viewUrl}" target="_blank" class="action-btn btn-primary-outline" title="View">View</a>
+                        <a href="${downloadUrl}" download="${escapeHtml(file.originalname)}" class="action-btn btn-success-outline" title="Download">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                        </a>
                     </div>
                 </td>
             `;
             
-            // Append the cloned dropdown template
             tr.querySelector('.edit-folder-wrapper').appendChild(folderSelectElement);
             
+            // Listen for checkbox changes
+            const cb = tr.querySelector('.row-checkbox');
+            cb.addEventListener('change', updateBulkButtons);
+            
             filesBody.appendChild(tr);
-
-            // Add Event Listeners for this row
-            const btnEdit = tr.querySelector('.btn-edit');
-            const btnSave = tr.querySelector('.btn-save');
-            const btnDelete = tr.querySelector('.btn-delete');
-
-            btnEdit.addEventListener('click', () => toggleEditMode(tr, true));
-            btnSave.addEventListener('click', () => saveRowEdits(tr, file.filename));
-            btnDelete.addEventListener('click', () => deleteFile(file.filename));
         });
     }
 
     function toggleEditMode(tr, isEditing) {
         const viewModes = tr.querySelectorAll('.view-mode');
         const editInputs = tr.querySelectorAll('.edit-input');
-        const btnEdit = tr.querySelector('.btn-edit');
-        const btnSave = tr.querySelector('.btn-save');
 
         if (isEditing) {
             viewModes.forEach(el => el.classList.add('hidden'));
             editInputs.forEach(el => el.classList.remove('hidden'));
-            btnEdit.classList.add('hidden');
-            btnSave.classList.remove('hidden');
-            tr.querySelector('.edit-project').focus();
+            const firstInput = tr.querySelector('.edit-year');
+            if (firstInput) firstInput.focus();
         } else {
             viewModes.forEach(el => el.classList.remove('hidden'));
             editInputs.forEach(el => el.classList.add('hidden'));
-            btnEdit.classList.remove('hidden');
-            btnSave.classList.add('hidden');
         }
     }
 
-    async function saveRowEdits(tr, filename) {
-        const newProject = tr.querySelector('.edit-project').value;
-        const newYear = tr.querySelector('.edit-year').value;
-        const newRemarks = tr.querySelector('.edit-remarks').value;
-        const newFolder = tr.querySelector('.edit-folder').value;
-
-        toggleEditMode(tr, false);
-
-        try {
-            const response = await fetch(`/api/files/${filename}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId: newProject, year: newYear, remarks: newRemarks, folder: newFolder })
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to save');
-            }
-            
-            // Reload all files from server because physical moving and safe folder mapping happens backend
-            loadFiles();
-
-        } catch (error) {
-            console.error('Error saving edits:', error);
-            alert('Failed to save changes. Please try again.');
-            loadFiles(); // reload to revert
-        }
-    }
-
-    async function deleteFile(filename) {
-        if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
-            return;
-        }
-
-        try {
-            const response = await fetch(`/api/files/${filename}`, {
-                method: 'DELETE'
-            });
-
-            if (response.ok) {
-                loadFiles(); // Refresh table and dashboard counts
-            } else {
-                const res = await response.json();
-                alert(res.error || 'Failed to delete file.');
-            }
-        } catch (error) {
-            console.error('Delete error:', error);
-            alert('An error occurred while deleting the file.');
-        }
-    }
-
-    // Helper to prevent XSS
     function escapeHtml(unsafe) {
         if (!unsafe) return '';
         return unsafe
@@ -372,6 +389,5 @@ document.addEventListener('DOMContentLoaded', () => {
              .replace(/'/g, "&#039;");
     }
 
-    // Initial load
     loadFiles();
 });

@@ -383,22 +383,44 @@ td {
     border: 1px solid transparent;
 }
 
-.btn-primary-outline {
-    color: var(--primary-color);
-    border-color: var(--primary-color);
-}
-.btn-primary-outline:hover {
-    background-color: var(--primary-color);
-    color: white;
+.btn-primary-outline,
+.btn-success-outline,
+.btn-danger-outline {
+    background: transparent;
+    border: 1px solid currentColor;
+    color: var(--text-color);
+    padding: 0.35rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
 }
 
-.btn-danger-outline {
-    color: var(--danger-color);
-    border-color: var(--danger-color);
+.btn-primary-outline { color: var(--primary-color); }
+.btn-primary-outline:hover { background: var(--primary-color); color: white; }
+
+.btn-success-outline { color: var(--c-green); }
+.btn-success-outline:hover { background: var(--c-green); color: white; }
+
+.btn-danger-outline { color: var(--c-pink); }
+.btn-danger-outline:hover { background: var(--c-pink); color: white; }
+
+/* Bulk Actions and Checkboxes */
+.bulk-actions {
+    background: var(--bg-color);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
 }
-.btn-danger-outline:hover {
-    background-color: var(--danger-color);
-    color: white;
+.row-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
 }
 
 .btn-success-outline {
