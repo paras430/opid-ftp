@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -132,7 +133,26 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50 MB
 });
 
+// Basic Authentication Middleware
+function basicAuth(req, res, next) {
+  // If credentials are not set in .env, skip authentication
+  if (!process.env.APP_USERNAME || !process.env.APP_PASSWORD) {
+    return next();
+  }
+
+  const b64auth = (req.headers.authorization || '').split(' ')[1] || '';
+  const [login, password] = Buffer.from(b64auth, 'base64').toString().split(':');
+
+  if (login && password && login === process.env.APP_USERNAME && password === process.env.APP_PASSWORD) {
+    return next();
+  }
+
+  res.set('WWW-Authenticate', 'Basic realm="FTP Portal"');
+  res.status(401).send('Authentication required. Please provide valid credentials.');
+}
+
 // Middleware
+app.use(basicAuth);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(UPLOADS_DIR));
