@@ -14,13 +14,38 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
                 <h1>FTP Portal</h1>
             </div>
+            
+            <div id="user-profile" class="hidden" style="display: flex; align-items: center; gap: 1rem; position: relative;">
+                <div id="display-username" style="font-weight: 600; cursor: pointer;">Username</div>
+                <button id="btn-logout" class="action-btn btn-danger-outline hidden" style="position: absolute; top: 100%; right: 0; margin-top: 0.5rem; background: var(--bg-color); z-index: 10;">Logout</button>
+            </div>
+
             <button id="theme-toggle" class="theme-toggle" aria-label="Toggle Dark Mode">
                 <svg id="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
                 <svg id="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
             </button>
         </header>
 
-        <main>
+        <!-- Login Screen -->
+        <div id="login-screen" class="hidden" style="display: flex; justify-content: center; align-items: center; min-height: 60vh;">
+            <div class="glass-panel" style="width: 100%; max-width: 400px; padding: 2rem;">
+                <h2 style="text-align: center; margin-bottom: 1.5rem;">Login</h2>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="login-username">Username</label>
+                        <input type="text" id="login-username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" required>
+                    </div>
+                    <button type="submit" class="primary-btn" style="width: 100%;">Login</button>
+                    <div id="login-status" class="status-msg" style="text-align: center; margin-top: 1rem;"></div>
+                </form>
+            </div>
+        </div>
+
+        <main id="app-main" class="hidden">
             <section class="upload-section glass-panel">
                 <h2>Upload File</h2>
                 <form id="upload-form">

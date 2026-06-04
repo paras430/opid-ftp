@@ -156,6 +156,9 @@ const upload = multer({
 
 // Basic Authentication Middleware
 function basicAuth(req, res, next) {
+  // Allow login endpoint to bypass auth
+  if (req.path === '/api/login') return next();
+
   let users = {};
   
   if (process.env.APP_USERS) {
@@ -177,11 +180,11 @@ function basicAuth(req, res, next) {
   const [login, password] = Buffer.from(b64auth, 'base64').toString().split(':');
 
   if (login && password && users[login] && users[login] === password) {
+    req.user = login; // Attach user to request
     return next();
   }
 
-  res.set('WWW-Authenticate', 'Basic realm="FTP Portal"');
-  res.status(401).send('Authentication required. Please provide valid credentials.');
+  res.status(401).json({ error: 'Authentication required' });
 }
 
 // Middleware
@@ -189,6 +192,32 @@ app.use(basicAuth);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(UPLOADS_DIR));
+
+// Login Endpoint
+app.post('/api/login', express.json(), (req, res) => {
+  const { username, password } = req.body;
+  let users = {};
+  
+  if (process.env.APP_USERS) {
+    const pairs = process.env.APP_USERS.split(',');
+    for (const pair of pairs) {
+      const [u, p] = pair.split(':');
+      if (u && p) users[u.trim()] = p.trim();
+    }
+  } else if (process.env.APP_USERNAME && process.env.APP_PASSWORD) {
+    users[process.env.APP_USERNAME.trim()] = process.env.APP_PASSWORD.trim();
+  }
+
+  if (Object.keys(users).length === 0) {
+    return res.json({ success: true, message: 'Auth disabled' });
+  }
+
+  if (username && password && users[username] === password) {
+    res.json({ success: true, username });
+  } else {
+    res.status(401).json({ error: 'Invalid credentials' });
+  }
+});
 
 // API Endpoints
 

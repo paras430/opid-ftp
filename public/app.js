@@ -36,10 +36,20 @@ document.addEventListener('DOMContentLoaded', () => {
         { name: 'Misc', color: 'var(--c-gray)' }
     ];
 
-    // State
+    // Auth & UI State
+    let authHeader = sessionStorage.getItem('auth') || '';
+    let currentUsername = sessionStorage.getItem('username') || '';
     let allFiles = [];
     let currentActiveFolder = null; // null means 'All Files'
     let visibleCount = 5;
+
+    const loginScreen = document.getElementById('login-screen');
+    const appMain = document.getElementById('app-main');
+    const userProfile = document.getElementById('user-profile');
+    const displayUsername = document.getElementById('display-username');
+    const btnLogout = document.getElementById('btn-logout');
+    const loginForm = document.getElementById('login-form');
+    const loginStatus = document.getElementById('login-status');
     
     // UI Elements
     const filesBody = document.getElementById('files-body');
@@ -50,6 +60,85 @@ document.addEventListener('DOMContentLoaded', () => {
     const folderDropdownTemplate = document.getElementById('folder-dropdown-template');
     const btnBack = document.getElementById('btn-back');
     const btnLoadMore = document.getElementById('btn-load-more');
+
+    // Auth Initialization
+    function checkAuth() {
+        if (authHeader) {
+            loginScreen.classList.add('hidden');
+            appMain.classList.remove('hidden');
+            userProfile.classList.remove('hidden');
+            displayUsername.textContent = currentUsername || 'User';
+            loadFiles();
+        } else {
+            loginScreen.classList.remove('hidden');
+            appMain.classList.add('hidden');
+            userProfile.classList.add('hidden');
+            // Try fetching anyway in case auth is disabled or already cached by browser
+            fetchAuth('/api/files').then(res => {
+                if(res.ok) {
+                    authHeader = 'anonymous'; // Skip login
+                    checkAuth();
+                }
+            }).catch(() => {});
+        }
+    }
+
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const u = document.getElementById('login-username').value;
+        const p = document.getElementById('login-password').value;
+        
+        loginStatus.textContent = 'Logging in...';
+        loginStatus.className = 'status-msg';
+
+        try {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: u, password: p })
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                authHeader = 'Basic ' + btoa(u + ':' + p);
+                currentUsername = data.username || 'User';
+                sessionStorage.setItem('auth', authHeader);
+                sessionStorage.setItem('username', currentUsername);
+                checkAuth();
+            } else {
+                loginStatus.textContent = data.error || 'Login failed';
+                loginStatus.className = 'status-msg error';
+            }
+        } catch (err) {
+            loginStatus.textContent = 'Error logging in';
+            loginStatus.className = 'status-msg error';
+        }
+    });
+
+    displayUsername.addEventListener('click', () => {
+        btnLogout.classList.toggle('hidden');
+    });
+
+    btnLogout.addEventListener('click', () => {
+        sessionStorage.removeItem('auth');
+        sessionStorage.removeItem('username');
+        window.location.reload();
+    });
+
+    async function fetchAuth(url, options = {}) {
+        if (!options.headers) options.headers = {};
+        if (authHeader && authHeader !== 'anonymous') {
+            options.headers['Authorization'] = authHeader;
+        }
+        
+        const res = await fetch(url, options);
+        if (res.status === 401 && url !== '/api/login') {
+            sessionStorage.removeItem('auth');
+            sessionStorage.removeItem('username');
+            window.location.reload();
+        }
+        return res;
+    }
 
     btnBack.addEventListener('click', () => {
         currentActiveFolder = null;
@@ -105,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const newFolder = tr.querySelector('.edit-folder').value;
 
             try {
-                const response = await fetch(`/api/files/${filename}`, {
+                const response = await fetchAuth(`/api/files/${filename}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ year: newYear, remarks: newRemarks, folder: newFolder })
@@ -129,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm(`Are you sure you want to delete ${checked.length} files?`)) return;
 
         for (const cb of checked) {
-            await fetch(`/api/files/${cb.value}`, { method: 'DELETE' });
+            await fetchAuth(`/api/files/${cb.value}`, { method: 'DELETE' });
         }
         selectAll.checked = false;
         loadFiles();
@@ -157,7 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showStatus('', ''); // clear
 
         try {
-            const response = await fetch('/api/upload', {
+            const response = await fetchAuth('/api/upload', {
                 method: 'POST',
                 body: formData
             });
@@ -193,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load Files Data
     async function loadFiles() {
         try {
-            const response = await fetch('/api/files');
+            const response = await fetchAuth('/api/files');
             allFiles = await response.json();
             allFiles.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
             
@@ -314,21 +403,35 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
             
-            const viewUrl = `/api/view/${encodeURIComponent(file.filename)}`;
-            const downloadUrl = `/api/download/${encodeURIComponent(file.filename)}`;
-            
             // Build the folder dropdown for edit mode
             const folderSelectClone = folderDropdownTemplate.content.cloneNode(true);
             const folderSelectElement = folderSelectClone.querySelector('select');
             folderSelectElement.value = file.folder; // Set current folder
 
+            // Direct URLs for standard anchor tags, passing token in URL query parameter if possible, 
+            // but standard browser anchor tags use cookies or browser basic auth natively.
+            // Since we suppressed native WWW-Authenticate, <a href> won't attach headers!
+            // Wait: If the user needs to download via <a href>, we must append the token or use a fetch/blob download.
+            // Actually, static downloads are protected by Basic Auth on the server. If the browser hasn't done Basic Auth natively, <a target="_blank"> will fail!
+            // BUT wait! We haven't stripped the basicAuth from the static GET endpoints? 
+            // Yes we did, but the browser won't send the Authorization header automatically for static links.
+            // To fix this, we should use fetch() and create a blob URL for downloads, OR append ?token=xxx.
+            // Given the limitations, creating a blob is safest.
+            
+            const downloadBtnId = 'dl-' + index;
+            const viewBtnId = 'vw-' + index;
+
             tr.innerHTML = `
                 <td><input type="checkbox" class="row-checkbox" value="${escapeHtml(file.filename)}"></td>
                 <td>${index + 1}</td>
                 <td>
-                    <div style="font-weight: 500; word-break: break-all;">${escapeHtml(file.originalname)}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted)">${sizeMB} MB</div>
-                    <span class="format-badge">${escapeHtml(file.format)}</span>
+                    <div class="file-name-container">
+                        <div style="font-weight: 500; word-break: break-all;">${escapeHtml(file.originalname)}</div>
+                        <div class="file-details">
+                            <span>${sizeMB} MB</span>
+                            <span class="format-badge">${escapeHtml(file.format)}</span>
+                        </div>
+                    </div>
                 </td>
                 <td class="cell-folder ${currentActiveFolder ? 'hidden' : ''}">
                     <span class="view-mode">${escapeHtml(file.folder)}</span>
@@ -345,10 +448,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
                 <td>
                     <div class="actions-group">
-                        <a href="${viewUrl}" target="_blank" class="action-btn btn-primary-outline" title="View">View</a>
-                        <a href="${downloadUrl}" download="${escapeHtml(file.originalname)}" class="action-btn btn-success-outline" title="Download">
+                        <button id="${viewBtnId}" class="action-btn btn-primary-outline" title="View">View</button>
+                        <button id="${downloadBtnId}" class="action-btn btn-success-outline" title="Download">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                        </a>
+                        </button>
                     </div>
                 </td>
             `;
@@ -360,6 +463,36 @@ document.addEventListener('DOMContentLoaded', () => {
             cb.addEventListener('change', updateBulkButtons);
             
             filesBody.appendChild(tr);
+
+            // Add View & Download Fetch-based Handlers (needed because of custom headers)
+            document.getElementById(downloadBtnId).addEventListener('click', async () => {
+                const res = await fetchAuth(`/api/download/${encodeURIComponent(file.filename)}`);
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = file.originalname;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    alert('Download failed');
+                }
+            });
+
+            document.getElementById(viewBtnId).addEventListener('click', async () => {
+                const res = await fetchAuth(`/api/view/${encodeURIComponent(file.filename)}`);
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    window.open(url, '_blank');
+                    // We don't revoke the URL immediately so the new tab can load it.
+                } else {
+                    alert('View failed');
+                }
+            });
         });
     }
 
@@ -389,5 +522,6 @@ document.addEventListener('DOMContentLoaded', () => {
              .replace(/'/g, "&#039;");
     }
 
-    loadFiles();
+    // Start App
+    checkAuth();
 });
