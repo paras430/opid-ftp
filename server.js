@@ -176,7 +176,7 @@ function basicAuth(req, res, next) {
     return next();
   }
 
-  const b64auth = (req.headers.authorization || '').split(' ')[1] || '';
+  const b64auth = req.headers['x-auth-token'] || '';
   const [login, password] = Buffer.from(b64auth, 'base64').toString().split(':');
 
   if (login && password && users[login] && users[login] === password) {

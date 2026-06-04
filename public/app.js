@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loginScreen.classList.add('hidden');
             appMain.classList.remove('hidden');
             userProfile.classList.remove('hidden');
-            displayUsername.textContent = currentUsername || 'User';
+            document.getElementById('username-text').textContent = currentUsername || 'User';
             loadFiles();
         } else {
             loginScreen.classList.remove('hidden');
