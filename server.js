@@ -176,7 +176,7 @@ function basicAuth(req, res, next) {
     return next();
   }
 
-  let b64auth = req.headers['x-auth-token'] || '';
+  let b64auth = req.headers['x-auth-token'] || req.query.token || '';
   if (b64auth.startsWith('Basic ')) {
     b64auth = b64auth.split(' ')[1];
   }

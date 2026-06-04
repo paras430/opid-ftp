@@ -418,8 +418,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // To fix this, we should use fetch() and create a blob URL for downloads, OR append ?token=xxx.
             // Given the limitations, creating a blob is safest.
             
-            const downloadBtnId = 'dl-' + index;
-            const viewBtnId = 'vw-' + index;
+            const viewUrl = `/api/view/${encodeURIComponent(file.filename)}?token=${encodeURIComponent(authHeader)}`;
+            const downloadUrl = `/api/download/${encodeURIComponent(file.filename)}?token=${encodeURIComponent(authHeader)}`;
 
             tr.innerHTML = `
                 <td><input type="checkbox" class="row-checkbox" value="${escapeHtml(file.filename)}"></td>
@@ -448,10 +448,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
                 <td>
                     <div class="actions-group">
-                        <button id="${viewBtnId}" class="action-btn btn-primary-outline" title="View">View</button>
-                        <button id="${downloadBtnId}" class="action-btn btn-success-outline" title="Download">
+                        <a href="${viewUrl}" target="_blank" class="action-btn btn-primary-outline" style="text-decoration: none;" title="View">View</a>
+                        <a href="${downloadUrl}" download="${escapeHtml(file.originalname)}" class="action-btn btn-success-outline" style="display: flex; align-items: center; justify-content: center; text-decoration: none;" title="Download">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                        </button>
+                        </a>
                     </div>
                 </td>
             `;
@@ -463,36 +463,6 @@ document.addEventListener('DOMContentLoaded', () => {
             cb.addEventListener('change', updateBulkButtons);
             
             filesBody.appendChild(tr);
-
-            // Add View & Download Fetch-based Handlers (needed because of custom headers)
-            document.getElementById(downloadBtnId).addEventListener('click', async () => {
-                const res = await fetchAuth(`/api/download/${encodeURIComponent(file.filename)}`);
-                if (res.ok) {
-                    const blob = await res.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = file.originalname;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                } else {
-                    alert('Download failed');
-                }
-            });
-
-            document.getElementById(viewBtnId).addEventListener('click', async () => {
-                const res = await fetchAuth(`/api/view/${encodeURIComponent(file.filename)}`);
-                if (res.ok) {
-                    const blob = await res.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    window.open(url, '_blank');
-                    // We don't revoke the URL immediately so the new tab can load it.
-                } else {
-                    alert('View failed');
-                }
-            });
         });
     }
 
