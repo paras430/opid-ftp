@@ -187,10 +187,12 @@ function basicAuth(req, res, next) {
   res.status(401).json({ error: 'Authentication required' });
 }
 
-// Middleware
-app.use(basicAuth);
-app.use(express.json());
+// Serve frontend UI without authentication
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Middleware
+app.use(express.json());
+app.use(basicAuth);
 app.use('/uploads', express.static(UPLOADS_DIR));
 
 // Login Endpoint
