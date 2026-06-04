@@ -213,6 +213,7 @@ label {
 }
 
 input[type="text"],
+input[type="password"],
 input[type="number"],
 textarea,
 select,
