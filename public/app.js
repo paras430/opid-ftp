@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
             appMain.classList.add('hidden');
             userProfile.classList.add('hidden');
             // Try fetching anyway in case auth is disabled or already cached by browser
-            fetchAuth('/api/files').then(res => {
+            fetchAuth('/api/files', {}, true).then(res => {
                 if(res.ok) {
                     authHeader = 'anonymous'; // Skip login
                     checkAuth();
@@ -125,14 +125,14 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.reload();
     });
 
-    async function fetchAuth(url, options = {}) {
+    async function fetchAuth(url, options = {}, skipReload = false) {
         if (!options.headers) options.headers = {};
         if (authHeader && authHeader !== 'anonymous') {
-            options.headers['Authorization'] = authHeader;
+            options.headers['X-Auth-Token'] = authHeader;
         }
         
         const res = await fetch(url, options);
-        if (res.status === 401 && url !== '/api/login') {
+        if (res.status === 401 && url !== '/api/login' && !skipReload) {
             sessionStorage.removeItem('auth');
             sessionStorage.removeItem('username');
             window.location.reload();
