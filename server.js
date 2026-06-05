@@ -60,11 +60,15 @@ const db = new sqlite3.Database(DB_FILE, (err) => {
       projectId TEXT,
       year TEXT,
       remarks TEXT,
-      uploadDate TEXT
+      uploadDate TEXT,
+      uploader TEXT
     )`, (err) => {
       if (err) {
         console.error('Error creating table:', err.message);
       } else {
+        // Attempt to add uploader column if it doesn't exist
+        db.run("ALTER TABLE files ADD COLUMN uploader TEXT DEFAULT 'Unknown'", () => {});
+        
         db.run("UPDATE files SET projectId = ''", (err) => {
            if (err) console.error("Error wiping projectId:", err.message);
         });
@@ -267,13 +271,14 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     projectId: req.body.projectId || '',
     year: req.body.year || '',
     remarks: req.body.remarks || '',
-    uploadDate: new Date().toISOString()
+    uploadDate: new Date().toISOString(),
+    uploader: req.user || 'Unknown'
   };
 
   try {
-    await runQuery(`INSERT INTO files (id, filename, originalname, size, format, folder, safeFolder, projectId, year, remarks, uploadDate) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-      [fileData.id, fileData.filename, fileData.originalname, fileData.size, fileData.format, fileData.folder, fileData.safeFolder, fileData.projectId, fileData.year, fileData.remarks, fileData.uploadDate]
+    await runQuery(`INSERT INTO files (id, filename, originalname, size, format, folder, safeFolder, projectId, year, remarks, uploadDate, uploader) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+      [fileData.id, fileData.filename, fileData.originalname, fileData.size, fileData.format, fileData.folder, fileData.safeFolder, fileData.projectId, fileData.year, fileData.remarks, fileData.uploadDate, fileData.uploader]
     );
     res.json({ message: 'File uploaded successfully', file: fileData });
   } catch (err) {

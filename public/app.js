@@ -428,6 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="file-name-container">
                         <div style="font-weight: 500; word-break: break-all;">${escapeHtml(file.originalname)}</div>
                         <div class="file-details">
+                            <span>Uploaded by: <strong style="color: var(--primary-color);">${escapeHtml(file.uploader || 'Unknown')}</strong></span>
                             <span>${sizeMB} MB</span>
                             <span class="format-badge">${escapeHtml(file.format)}</span>
                         </div>

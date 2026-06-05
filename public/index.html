@@ -59,16 +59,16 @@
                         <label for="file-input">Select File (Max 50MB)</label>
                         <input type="file" id="file-input" name="file" required>
                     </div>
-                    <div class="form-group">
-                        <label for="folder">Select Folder</label>
-                        <select id="folder" name="folder" required>
-                            <option value="Contract/PAT docs">Contract/PAT docs</option>
-                            <option value="Network">Network</option>
-                            <option value="Equipment">Equipment</option>
-                            <option value="Letter/MOM/Report">Letter/MOM/Report</option>
-                            <option value="Images">Images</option>
-                            <option value="Misc" selected>Misc</option>
-                        </select>
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label>Select Folder</label>
+                        <div class="folder-radio-group">
+                            <label class="folder-radio"><input type="radio" name="folder" value="Contract/PAT docs"><span>Contract/PAT docs</span></label>
+                            <label class="folder-radio"><input type="radio" name="folder" value="Network" checked><span>Network</span></label>
+                            <label class="folder-radio"><input type="radio" name="folder" value="Equipment"><span>Equipment</span></label>
+                            <label class="folder-radio"><input type="radio" name="folder" value="Letter/MOM/Report"><span>Letter/MOM/Report</span></label>
+                            <label class="folder-radio"><input type="radio" name="folder" value="Images"><span>Images</span></label>
+                            <label class="folder-radio"><input type="radio" name="folder" value="Misc"><span>Misc</span></label>
+                        </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
