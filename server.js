@@ -244,6 +244,18 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     return res.status(400).json({ error: 'No file uploaded or file exceeds 50MB limit.' });
   }
 
+  const year = req.body.year || '';
+  if (year && !/^\d{4}$/.test(year)) {
+    try {
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+    } catch (err) {
+      console.error('Failed to clean up temp file:', err);
+    }
+    return res.status(400).json({ error: 'Year must be a 4-digit integer' });
+  }
+
   let folder = req.body.folder || 'Misc';
   if (folder === 'Letter/MOMs/Reports') folder = 'Letter/MOM/Report'; // fallback for old UI caches
   const safeFolder = FOLDER_MAP[folder] || 'Misc';
@@ -329,6 +341,12 @@ app.get('/api/view/:filename', async (req, res) => {
 app.put('/api/files/:filename', async (req, res) => {
   const filename = req.params.filename;
   const { projectId, year, remarks, folder } = req.body;
+
+  if (year !== undefined && year !== '') {
+    if (!/^\d{4}$/.test(year)) {
+      return res.status(400).json({ error: 'Year must be a 4-digit integer' });
+    }
+  }
   
   try {
     const currentData = await getQuery(`SELECT * FROM files WHERE filename = ?`, [filename]);
