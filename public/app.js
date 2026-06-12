@@ -453,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td style="font-size: 0.85rem">${formatDateTime(file.uploadDate)}</td>
                 <td class="cell-year">
                     <span class="view-mode">${escapeHtml(file.year)}</span>
-                    <input type="number" class="edit-input hidden edit-year" value="${escapeHtml(file.year)}" min="1000" max="9999" step="1">
+                    <input type="text" class="edit-input hidden edit-year" value="${escapeHtml(file.year)}" maxlength="4" inputmode="numeric" pattern="[0-9]*">
                 </td>
                 <td class="cell-remarks">
                     <span class="view-mode">${escapeHtml(file.remarks)}</span>
@@ -461,10 +461,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
                 <td>
                     <div class="actions-group">
-                        <button class="action-btn btn-primary-outline btn-edit-row" title="Edit">Edit</button>
-                        <button class="action-btn btn-danger-outline btn-cancel-row hidden" title="Cancel">Cancel</button>
-                        <a href="${viewUrl}" target="_blank" class="action-btn btn-primary-outline btn-view-row" style="text-decoration: none;" title="View">View</a>
-                        <a href="${downloadUrl}" download="${escapeHtml(file.originalname)}" class="action-btn btn-success-outline btn-download-row" style="display: flex; align-items: center; justify-content: center; text-decoration: none;" title="Download">
+                        <a href="${viewUrl}" target="_blank" class="action-btn btn-primary-outline" style="text-decoration: none;" title="View">View</a>
+                        <a href="${downloadUrl}" download="${escapeHtml(file.originalname)}" class="action-btn btn-success-outline" style="display: flex; align-items: center; justify-content: center; text-decoration: none;" title="Download">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
                         </a>
                     </div>
@@ -477,63 +475,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const cb = tr.querySelector('.row-checkbox');
             cb.addEventListener('change', updateBulkButtons);
             
-            // Row-level Edit Event Listeners
-            const editBtn = tr.querySelector('.btn-edit-row');
-            const cancelBtn = tr.querySelector('.btn-cancel-row');
-            const viewBtn = tr.querySelector('.btn-view-row');
-            const downloadBtn = tr.querySelector('.btn-download-row');
-
-            editBtn.addEventListener('click', async () => {
-                const isEditing = editBtn.textContent === 'Save';
-                if (!isEditing) {
-                    toggleEditMode(tr, true);
-                    editBtn.textContent = 'Save';
-                    editBtn.className = 'action-btn btn-success-outline btn-edit-row';
-                    cancelBtn.classList.remove('hidden');
-                    viewBtn.classList.add('hidden');
-                    downloadBtn.classList.add('hidden');
-                } else {
-                    const filename = file.filename;
-                    const newYear = tr.querySelector('.edit-year').value;
-                    const newRemarks = tr.querySelector('.edit-remarks').value;
-                    const newFolder = tr.querySelector('.edit-folder').value;
-
-                    if (newYear && !/^\d{4}$/.test(newYear)) {
-                        alert('Year must be a 4-digit integer.');
-                        return;
-                    }
-
-                    try {
-                        const response = await fetchAuth(`/api/files/${filename}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ year: newYear, remarks: newRemarks, folder: newFolder })
-                        });
-                        if (response.ok) {
-                            loadFiles();
-                        } else {
-                            const errData = await response.json();
-                            alert(errData.error || 'Failed to save changes.');
-                        }
-                    } catch (error) {
-                        alert('An error occurred while saving.');
-                    }
-                }
-            });
-
-            cancelBtn.addEventListener('click', () => {
-                toggleEditMode(tr, false);
-                tr.querySelector('.edit-year').value = file.year;
-                tr.querySelector('.edit-remarks').value = file.remarks;
-                tr.querySelector('.edit-folder').value = file.folder;
-                
-                editBtn.textContent = 'Edit';
-                editBtn.className = 'action-btn btn-primary-outline btn-edit-row';
-                cancelBtn.classList.add('hidden');
-                viewBtn.classList.remove('hidden');
-                downloadBtn.classList.remove('hidden');
-            });
-
             filesBody.appendChild(tr);
         });
     }
