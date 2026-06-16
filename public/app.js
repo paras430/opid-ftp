@@ -241,8 +241,8 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         
         const file = fileInput.files[0];
-        if (file && file.size > 50 * 1024 * 1024) {
-            showStatus('File size exceeds 50MB limit.', 'error');
+        if (file && file.size > 100 * 1024 * 1024) {
+            showStatus('File size exceeds 100MB limit.', 'error');
             return;
         }
 

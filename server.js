@@ -155,7 +155,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 50 * 1024 * 1024 } // 50 MB
+  limits: { fileSize: 100 * 1024 * 1024 } // 100 MB
 });
 
 // Basic Authentication Middleware
@@ -241,7 +241,7 @@ app.get('/api/files', async (req, res) => {
 
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded or file exceeds 50MB limit.' });
+    return res.status(400).json({ error: 'No file uploaded or file exceeds 100MB limit.' });
   }
 
   const year = req.body.year || '';
