@@ -39,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Auth & UI State
     let authHeader = sessionStorage.getItem('auth') || '';
     let currentUsername = sessionStorage.getItem('username') || '';
+    let currentRole = sessionStorage.getItem('role') || 'Viewer';
     let allFiles = [];
     let currentActiveFolder = null; // null means 'All Files'
     let visibleCount = 5;
@@ -69,6 +70,14 @@ document.addEventListener('DOMContentLoaded', () => {
             appMain.classList.remove('hidden');
             userProfile.classList.remove('hidden');
             document.getElementById('username-text').textContent = currentUsername || 'User';
+            
+            // Show/hide Delete button based on role
+            if (currentRole === 'Master') {
+                btnBulkDelete.classList.remove('hidden');
+            } else {
+                btnBulkDelete.classList.add('hidden');
+            }
+            
             loadFiles();
         } else {
             loginScreen.classList.remove('hidden');
@@ -78,6 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fetchAuth('/api/files', {}, true).then(res => {
                 if(res.ok) {
                     authHeader = 'anonymous'; // Skip login
+                    currentRole = 'Master'; // Default to Master when auth disabled
                     checkAuth();
                 }
             }).catch(() => {});
@@ -103,8 +113,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok && data.success) {
                 authHeader = 'Basic ' + btoa(u + ':' + p);
                 currentUsername = data.username || 'User';
+                currentRole = data.role || 'Viewer';
                 sessionStorage.setItem('auth', authHeader);
                 sessionStorage.setItem('username', currentUsername);
+                sessionStorage.setItem('role', currentRole);
                 checkAuth();
             } else {
                 loginStatus.textContent = data.error || 'Login failed';

@@ -15,20 +15,30 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-// Log Authentication Status
-let configuredUsers = [];
+// Parse Authentication Config
+const USERS_DB = {};
 if (process.env.APP_USERS) {
   const pairs = process.env.APP_USERS.split(',');
   for (const pair of pairs) {
-    const [u, p] = pair.split(':');
-    if (u && p) configuredUsers.push(u.trim());
+    const [u, p, r] = pair.split(':');
+    if (u && p) {
+      USERS_DB[u.trim()] = {
+        password: p.trim(),
+        role: r ? r.trim() : 'Viewer' // Default to Viewer if not specified
+      };
+    }
   }
 } else if (process.env.APP_USERNAME && process.env.APP_PASSWORD) {
-  configuredUsers.push(process.env.APP_USERNAME.trim());
+  USERS_DB[process.env.APP_USERNAME.trim()] = {
+    password: process.env.APP_PASSWORD.trim(),
+    role: 'Viewer' // Default to Viewer if not specified
+  };
 }
 
+const configuredUsers = Object.keys(USERS_DB);
 if (configuredUsers.length > 0) {
-  console.log(`Basic Authentication is ENABLED for users: ${configuredUsers.join(', ')}`);
+  const userString = configuredUsers.map(u => `${u} (${USERS_DB[u].role})`).join(', ');
+  console.log(`Basic Authentication is ENABLED for users: ${userString}`);
 } else {
   console.log(`WARNING: Basic Authentication is DISABLED. No credentials found in .env`);
 }
@@ -164,20 +174,8 @@ function basicAuth(req, res, next) {
   // Allow login endpoint to bypass auth
   if (req.path === '/api/login') return next();
 
-  let users = {};
-  
-  if (process.env.APP_USERS) {
-    const pairs = process.env.APP_USERS.split(',');
-    for (const pair of pairs) {
-      const [u, p] = pair.split(':');
-      if (u && p) users[u.trim()] = p.trim();
-    }
-  } else if (process.env.APP_USERNAME && process.env.APP_PASSWORD) {
-    users[process.env.APP_USERNAME.trim()] = process.env.APP_PASSWORD.trim();
-  }
-
   // If no credentials configured, skip auth
-  if (Object.keys(users).length === 0) {
+  if (Object.keys(USERS_DB).length === 0) {
     return next();
   }
 
@@ -187,12 +185,27 @@ function basicAuth(req, res, next) {
   }
   const [login, password] = Buffer.from(b64auth, 'base64').toString().split(':');
 
-  if (login && password && users[login] && users[login] === password) {
+  if (login && password && USERS_DB[login] && USERS_DB[login].password === password) {
     req.user = login; // Attach user to request
+    req.userRole = USERS_DB[login].role; // Attach role to request
     return next();
   }
 
   res.status(401).json({ error: 'Authentication required' });
+}
+
+// Role Verification Middleware
+function requireRole(role) {
+  return (req, res, next) => {
+    // If no credentials configured, allow all
+    if (Object.keys(USERS_DB).length === 0) {
+      return next();
+    }
+    if (req.userRole === role) {
+      return next();
+    }
+    res.status(403).json({ error: `Forbidden: ${role} role required` });
+  };
 }
 
 // Serve frontend UI without authentication
@@ -206,24 +219,13 @@ app.use('/uploads', express.static(UPLOADS_DIR));
 // Login Endpoint
 app.post('/api/login', express.json(), (req, res) => {
   const { username, password } = req.body;
-  let users = {};
-  
-  if (process.env.APP_USERS) {
-    const pairs = process.env.APP_USERS.split(',');
-    for (const pair of pairs) {
-      const [u, p] = pair.split(':');
-      if (u && p) users[u.trim()] = p.trim();
-    }
-  } else if (process.env.APP_USERNAME && process.env.APP_PASSWORD) {
-    users[process.env.APP_USERNAME.trim()] = process.env.APP_PASSWORD.trim();
+
+  if (Object.keys(USERS_DB).length === 0) {
+    return res.json({ success: true, message: 'Auth disabled', role: 'Master' });
   }
 
-  if (Object.keys(users).length === 0) {
-    return res.json({ success: true, message: 'Auth disabled' });
-  }
-
-  if (username && password && users[username] === password) {
-    res.json({ success: true, username });
+  if (username && password && USERS_DB[username] && USERS_DB[username].password === password) {
+    res.json({ success: true, username, role: USERS_DB[username].role });
   } else {
     res.status(401).json({ error: 'Invalid credentials' });
   }
@@ -441,7 +443,7 @@ app.put('/api/files/:filename', async (req, res) => {
   }
 });
 
-app.delete('/api/files/:filename', async (req, res) => {
+app.delete('/api/files/:filename', requireRole('Master'), async (req, res) => {
   const filename = req.params.filename;
   try {
     const fileData = await getQuery(`SELECT * FROM files WHERE filename = ?`, [filename]);
