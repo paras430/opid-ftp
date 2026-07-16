@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const folderDropdownTemplate = document.getElementById('folder-dropdown-template');
     const btnBack = document.getElementById('btn-back');
     const btnLoadMore = document.getElementById('btn-load-more');
+    const btnBackupAll = document.getElementById('btn-backup-all');
 
     // Auth Initialization
     function checkAuth() {
@@ -151,6 +152,40 @@ document.addEventListener('DOMContentLoaded', () => {
     btnLoadMore.addEventListener('click', () => {
         visibleCount += 5;
         applyCurrentFilter();
+    });
+
+    btnBackupAll.addEventListener('click', async () => {
+        const originalText = btnBackupAll.innerHTML;
+        btnBackupAll.disabled = true;
+        btnBackupAll.innerHTML = `
+            <div class="loader" style="width: 14px; height: 14px; border-width: 2px; display: inline-block;"></div>
+            <span>Zipping Files...</span>
+        `;
+        try {
+            const downloadUrl = `/api/backup-zip?token=${encodeURIComponent(authHeader)}`;
+            const response = await fetchAuth(downloadUrl);
+            if (!response.ok) {
+                const errData = await response.json();
+                alert(errData.error || 'Failed to create backup zip');
+                return;
+            }
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'ftp_files_backup.zip';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (err) {
+            console.error(err);
+            alert('An error occurred while zipping files.');
+        } finally {
+            btnBackupAll.disabled = false;
+            btnBackupAll.innerHTML = originalText;
+        }
     });
 
     // Bulk Actions Elements

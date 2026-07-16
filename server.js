@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
+const archiver = require('archiver');
 require('dotenv').config();
 
 const app = express();
@@ -295,6 +296,43 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     res.json({ message: 'File uploaded successfully', file: fileData });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/backup-zip', async (req, res) => {
+  try {
+    const files = await allQuery(`SELECT * FROM files`);
+    if (files.length === 0) {
+      return res.status(404).json({ error: 'No files to backup' });
+    }
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename=ftp_files_backup.zip');
+
+    const archive = archiver('zip', {
+      zlib: { level: 9 }
+    });
+
+    archive.on('error', (err) => {
+      throw err;
+    });
+
+    archive.pipe(res);
+
+    for (const file of files) {
+      const filePath = path.join(UPLOADS_DIR, file.safeFolder || '', file.filename);
+      if (fs.existsSync(filePath)) {
+        const zipPath = path.join(file.folder || 'Misc', file.originalname);
+        archive.file(filePath, { name: zipPath });
+      }
+    }
+
+    await archive.finalize();
+  } catch (err) {
+    console.error('Error creating zip:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    }
   }
 });
 
