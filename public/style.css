@@ -572,6 +572,44 @@ td {
     display: none !important;
 }
 
+.detail-row td {
+    padding: 0;
+    border-bottom: 1px solid var(--table-border);
+    background-color: rgba(0, 0, 0, 0.015);
+}
+
+[data-theme="dark"] .detail-row td {
+    background-color: rgba(255, 255, 255, 0.015);
+}
+
+.detail-panel {
+    padding: 1rem 1.5rem;
+    font-size: 0.875rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    color: var(--text-muted);
+    border-left: 4px solid var(--primary-color);
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.detail-label {
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--primary-color);
+}
+
+.detail-value {
+    color: var(--text-color);
+}
+
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }

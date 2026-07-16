@@ -300,14 +300,23 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 });
 
 app.get('/api/backup-zip', async (req, res) => {
+  const folderFilter = req.query.folder;
   try {
-    const files = await allQuery(`SELECT * FROM files`);
+    let query = `SELECT * FROM files`;
+    let params = [];
+    if (folderFilter) {
+      query += ` WHERE folder = ?`;
+      params.push(folderFilter);
+    }
+
+    const files = await allQuery(query, params);
     if (files.length === 0) {
       return res.status(404).json({ error: 'No files to backup' });
     }
 
+    const safeFolderName = folderFilter ? folderFilter.replace(/[^a-zA-Z0-9]/g, '_') : 'all';
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', 'attachment; filename=ftp_files_backup.zip');
+    res.setHeader('Content-Disposition', `attachment; filename=ftp_files_backup_${safeFolderName}.zip`);
 
     const archive = archiver('zip', {
       zlib: { level: 9 }

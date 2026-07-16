@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const folderDropdownTemplate = document.getElementById('folder-dropdown-template');
     const btnBack = document.getElementById('btn-back');
     const btnLoadMore = document.getElementById('btn-load-more');
-    const btnBackupAll = document.getElementById('btn-backup-all');
+    const btnBackupFolder = document.getElementById('btn-backup-folder');
 
     // Auth Initialization
     function checkAuth() {
@@ -154,15 +154,16 @@ document.addEventListener('DOMContentLoaded', () => {
         applyCurrentFilter();
     });
 
-    btnBackupAll.addEventListener('click', async () => {
-        const originalText = btnBackupAll.innerHTML;
-        btnBackupAll.disabled = true;
-        btnBackupAll.innerHTML = `
+    btnBackupFolder.addEventListener('click', async () => {
+        if (!currentActiveFolder) return;
+        const originalText = btnBackupFolder.innerHTML;
+        btnBackupFolder.disabled = true;
+        btnBackupFolder.innerHTML = `
             <div class="loader" style="width: 14px; height: 14px; border-width: 2px; display: inline-block;"></div>
-            <span>Zipping Files...</span>
+            <span>Zipping Folder...</span>
         `;
         try {
-            const downloadUrl = `/api/backup-zip?token=${encodeURIComponent(authHeader)}`;
+            const downloadUrl = `/api/backup-zip?token=${encodeURIComponent(authHeader)}&folder=${encodeURIComponent(currentActiveFolder)}`;
             const response = await fetchAuth(downloadUrl);
             if (!response.ok) {
                 const errData = await response.json();
@@ -174,17 +175,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const a = document.createElement('a');
             a.style.display = 'none';
             a.href = url;
-            a.download = 'ftp_files_backup.zip';
+            const safeFolder = currentActiveFolder.replace(/[^a-zA-Z0-9]/g, '_');
+            a.download = `ftp_files_backup_${safeFolder}.zip`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
         } catch (err) {
             console.error(err);
-            alert('An error occurred while zipping files.');
+            alert('An error occurred while zipping folder.');
         } finally {
-            btnBackupAll.disabled = false;
-            btnBackupAll.innerHTML = originalText;
+            btnBackupFolder.disabled = false;
+            btnBackupFolder.innerHTML = originalText;
         }
     });
 
@@ -224,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const cb of checked) {
             const tr = cb.closest('tr');
             const filename = cb.value;
-            const newYear = tr.querySelector('.edit-year').value;
+            const newYear = tr.nextElementSibling.querySelector('.edit-year').value;
             const newRemarks = tr.querySelector('.edit-remarks').value;
             const newFolder = tr.querySelector('.edit-folder').value;
 
@@ -389,6 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
             colFolder.classList.remove('hidden'); 
             dashboardGrid.classList.add('hidden');
             btnBack.classList.remove('hidden');
+            btnBackupFolder.classList.add('hidden');
             
             filteredFiles = allFiles.filter(file => 
                 file.originalname.toLowerCase().includes(query) ||
@@ -402,6 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
             colFolder.classList.add('hidden'); 
             dashboardGrid.classList.add('hidden');
             btnBack.classList.remove('hidden');
+            btnBackupFolder.classList.remove('hidden');
             
             filteredFiles = allFiles.filter(f => f.folder === currentActiveFolder);
         } else {
@@ -409,6 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
             colFolder.classList.remove('hidden'); 
             dashboardGrid.classList.remove('hidden');
             btnBack.classList.add('hidden');
+            btnBackupFolder.classList.add('hidden');
         }
 
         if (filteredFiles.length > visibleCount) {
@@ -440,7 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnBulkSave.classList.add('hidden');
 
         if (files.length === 0) {
-            filesBody.innerHTML = `<tr><td colspan="${currentActiveFolder ? '7' : '8'}" class="empty-state">No files found.</td></tr>`;
+            filesBody.innerHTML = `<tr><td colspan="${currentActiveFolder ? '5' : '6'}" class="empty-state">No files found.</td></tr>`;
             return;
         }
 
@@ -485,11 +490,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="view-mode">${escapeHtml(file.folder)}</span>
                     <div class="edit-folder-wrapper"></div>
                 </td>
-                <td style="font-size: 0.85rem">${formatDateTime(file.uploadDate)}</td>
-                <td class="cell-year">
-                    <span class="view-mode">${escapeHtml(file.year)}</span>
-                    <input type="text" class="edit-input hidden edit-year" value="${escapeHtml(file.year)}" maxlength="4" inputmode="numeric" pattern="[0-9]*">
-                </td>
                 <td class="cell-remarks">
                     <span class="view-mode">${escapeHtml(file.remarks)}</span>
                     <input type="text" class="edit-input hidden edit-remarks" value="${escapeHtml(file.remarks)}">
@@ -500,28 +500,71 @@ document.addEventListener('DOMContentLoaded', () => {
                         <a href="${downloadUrl}" download="${escapeHtml(file.originalname)}" class="action-btn btn-success-outline" style="display: flex; align-items: center; justify-content: center; text-decoration: none;" title="Download">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
                         </a>
+                        <button class="action-btn btn-primary-outline btn-more" style="padding: 0.35rem 0.5rem;" title="More Details">More</button>
                     </div>
                 </td>
             `;
             
             tr.querySelector('.edit-folder-wrapper').appendChild(folderSelectElement);
             
+            const detailTr = document.createElement('tr');
+            detailTr.className = 'detail-row hidden';
+            detailTr.innerHTML = `
+                <td colspan="${currentActiveFolder ? '5' : '6'}">
+                    <div class="detail-panel">
+                        <div class="detail-item">
+                            <span class="detail-label">Upload Date</span>
+                            <span class="detail-value">${formatDateTime(file.uploadDate)}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Year</span>
+                            <span class="detail-value view-mode">${escapeHtml(file.year || 'N/A')}</span>
+                            <input type="text" class="edit-input hidden edit-year" value="${escapeHtml(file.year)}" maxlength="4" inputmode="numeric" pattern="[0-9]*" style="width: 100px; padding: 0.25rem;">
+                        </div>
+                    </div>
+                </td>
+            `;
+            
+            const btnMore = tr.querySelector('.btn-more');
+            btnMore.addEventListener('click', (e) => {
+                e.preventDefault();
+                const isHidden = detailTr.classList.contains('hidden');
+                if (isHidden) {
+                    detailTr.classList.remove('hidden');
+                    btnMore.textContent = 'Less';
+                } else {
+                    detailTr.classList.add('hidden');
+                    btnMore.textContent = 'More';
+                }
+            });
+            
             // Listen for checkbox changes
             const cb = tr.querySelector('.row-checkbox');
             cb.addEventListener('change', updateBulkButtons);
             
             filesBody.appendChild(tr);
+            filesBody.appendChild(detailTr);
         });
     }
 
     function toggleEditMode(tr, isEditing) {
-        const viewModes = tr.querySelectorAll('.view-mode');
-        const editInputs = tr.querySelectorAll('.edit-input');
+        const detailTr = tr.nextElementSibling;
+        const viewModes = [...tr.querySelectorAll('.view-mode')];
+        const editInputs = [...tr.querySelectorAll('.edit-input')];
+        if (detailTr && detailTr.classList.contains('detail-row')) {
+            viewModes.push(...detailTr.querySelectorAll('.view-mode'));
+            editInputs.push(...detailTr.querySelectorAll('.edit-input'));
+            if (isEditing) {
+                detailTr.classList.remove('hidden');
+                const moreBtn = tr.querySelector('.btn-more');
+                if (moreBtn) moreBtn.textContent = 'Less';
+            }
+        }
 
         if (isEditing) {
             viewModes.forEach(el => el.classList.add('hidden'));
             editInputs.forEach(el => el.classList.remove('hidden'));
-            const firstInput = tr.querySelector('.edit-year');
+            const firstInput = detailTr ? detailTr.querySelector('.edit-year') : null;
             if (firstInput) firstInput.focus();
         } else {
             viewModes.forEach(el => el.classList.remove('hidden'));
