@@ -48,8 +48,9 @@ const FOLDER_MAP = {
   'Contract/PAT docs': 'Contract_PAT_docs',
   'Network': 'Network',
   'Equipment': 'Equipment',
-  'Letter/MOM/Report': 'Letter_MOM_Report', // Renamed
-  'Images': 'Images',
+  'Letter/MOM/Report': 'Letter_MOM_Report',
+  'Reference Docs': 'Reference_Docs',
+  'Images': 'Reference_Docs',
   'Misc': 'Misc'
 };
 
@@ -157,6 +158,7 @@ async function migrateJsonToSqlite() {
 // Migrate existing files into year-based subfolders
 async function migrateToSubfolders() {
   try {
+    await runQuery(`UPDATE files SET folder = 'Reference Docs' WHERE folder = 'Images'`);
     const files = await allQuery(`SELECT * FROM files`);
     for (const f of files) {
       if (!f.uploadDate) continue;
