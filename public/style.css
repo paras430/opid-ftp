@@ -143,9 +143,21 @@ h2 {
 /* Dashboard Grid */
 .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 1rem;
     margin-bottom: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 .folder-card {
@@ -153,7 +165,7 @@ h2 {
     backdrop-filter: var(--backdrop);
     border: 1px solid var(--panel-border);
     border-radius: 1rem;
-    padding: 1.25rem;
+    padding: 1.15rem 0.75rem;
     box-shadow: var(--shadow);
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
@@ -162,6 +174,34 @@ h2 {
     align-items: center;
     text-align: center;
     gap: 0.5rem;
+}
+
+.folder-select-dropdown {
+    width: 100%;
+    padding: 0.65rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    font-family: inherit;
+    color: var(--text-color);
+    background-color: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 0.6rem;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1rem;
+}
+.folder-select-dropdown:hover {
+    border-color: var(--primary-color);
+}
+.folder-select-dropdown:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
 }
 
 .folder-card:hover {

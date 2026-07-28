@@ -49,6 +49,8 @@ const FOLDER_MAP = {
   'Network': 'Network',
   'Equipment': 'Equipment',
   'Letter/MOM/Report': 'Letter_MOM_Report',
+  'Progress': 'Progress',
+  'KMLs': 'KMLs',
   'Survey Report': 'Survey_Report',
   'As-Built Reports': 'As-Built_Reports',
   'Reference Docs': 'Reference_Docs',
