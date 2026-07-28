@@ -66,6 +66,8 @@
                             <label class="folder-radio"><input type="radio" name="folder" value="Network" checked><span>Network</span></label>
                             <label class="folder-radio"><input type="radio" name="folder" value="Equipment"><span>Equipment</span></label>
                             <label class="folder-radio"><input type="radio" name="folder" value="Letter/MOM/Report"><span>Letter/MOM/Report</span></label>
+                            <label class="folder-radio"><input type="radio" name="folder" value="Survey Report"><span>Survey Report</span></label>
+                            <label class="folder-radio"><input type="radio" name="folder" value="As-Built Reports"><span>As-Built Reports</span></label>
                             <label class="folder-radio"><input type="radio" name="folder" value="Reference Docs"><span>Reference Docs</span></label>
                             <label class="folder-radio"><input type="radio" name="folder" value="Misc"><span>Misc</span></label>
                         </div>
@@ -98,6 +100,7 @@
                 <div class="glass-panel mt-2" id="table-panel">
                     <div class="files-header" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
                         <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                            <button id="btn-back" class="action-btn btn-back-highlight hidden">Back</button>
                             <h2 id="table-title" style="margin-bottom: 0;">All Files</h2>
                             <button id="btn-backup-folder" class="action-btn btn-success-outline hidden" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; font-weight: 600; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.4rem;">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
@@ -114,9 +117,6 @@
                                 <button id="btn-bulk-save" class="action-btn btn-success-outline hidden" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">Save Changes</button>
                                 <button id="btn-bulk-delete" class="action-btn btn-danger-outline" disabled style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">Delete</button>
                             </div>
-                            <button id="btn-back" class="action-btn btn-back-minimal hidden">
-                                &larr; Back
-                            </button>
                         </div>
                     </div>
 
@@ -154,6 +154,8 @@
             <option value="Network">Network</option>
             <option value="Equipment">Equipment</option>
             <option value="Letter/MOM/Report">Letter/MOM/Report</option>
+            <option value="Survey Report">Survey Report</option>
+            <option value="As-Built Reports">As-Built Reports</option>
             <option value="Reference Docs">Reference Docs</option>
             <option value="Misc">Misc</option>
         </select>
