@@ -484,10 +484,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const maxSizeBytes = 100 * 1024 * 1024;
+        const maxSizeBytes = 50 * 1024 * 1024;
         const oversized = selectedFiles.filter(f => f.size > maxSizeBytes);
         if (oversized.length > 0) {
-            showStatus(`File "${oversized[0].name}" exceeds 100MB limit.`, 'error');
+            showStatus(`File "${oversized[0].name}" exceeds 50MB limit.`, 'error');
             return;
         }
 
