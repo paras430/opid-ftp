@@ -59,7 +59,7 @@
                         <label for="file-input">Select File (Max 100MB)</label>
                         <input type="file" id="file-input" name="file" required>
                     </div>
-                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <div class="form-group" style="margin-bottom: 1rem;">
                         <label for="upload-folder-select">Select Folder</label>
                         <select name="folder" id="upload-folder-select" class="folder-select-dropdown" required>
                             <option value="Contract/PAT docs">Contract/PAT docs</option>
@@ -73,6 +73,16 @@
                             <option value="Reference Docs">Reference Docs</option>
                             <option value="Misc">Misc</option>
                         </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label for="upload-subfolder-select">Select Subfolder</label>
+                        <select id="upload-subfolder-select" class="folder-select-dropdown">
+                            <!-- Options populated dynamically -->
+                        </select>
+                        <div id="new-subfolder-container" class="hidden" style="margin-top: 0.75rem;">
+                            <label for="upload-new-subfolder" style="font-size: 0.85rem; font-weight: 500; display: block; margin-bottom: 0.25rem;">New Subfolder Name</label>
+                            <input type="text" id="upload-new-subfolder" placeholder="Enter new subfolder name...">
+                        </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
@@ -107,6 +117,10 @@
                             <button id="btn-backup-folder" class="action-btn btn-success-outline hidden" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; font-weight: 600; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.4rem;">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
                                 Backup Folder (ZIP)
+                            </button>
+                            <button id="btn-move-subfolder" class="action-btn btn-primary-outline hidden" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; font-weight: 600; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.4rem;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+                                Move Subfolder
                             </button>
                         </div>
                         <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
@@ -164,6 +178,26 @@
             <option value="Misc">Misc</option>
         </select>
     </template>
+
+    <!-- Move Subfolder Modal -->
+    <div id="move-subfolder-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000;">
+        <div class="glass-panel" style="width: 100%; max-width: 450px; padding: 2rem; background: var(--bg-color); border-radius: 12px; box-shadow: var(--shadow-lg);">
+            <h3 style="margin-bottom: 1rem;">Move Subfolder</h3>
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+                Move subfolder <strong id="modal-subfolder-name" style="color: var(--primary-color);"></strong> to another main folder:
+            </p>
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label for="move-target-folder-select">Target Main Folder</label>
+                <select id="move-target-folder-select" class="folder-select-dropdown" style="width: 100%; margin-top: 0.5rem; padding: 0.6rem;">
+                    <!-- Populated dynamically -->
+                </select>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <button id="btn-cancel-move" class="action-btn btn-primary-outline" type="button">Cancel</button>
+                <button id="btn-confirm-move" class="primary-btn" type="button">Move Subfolder</button>
+            </div>
+        </div>
+    </div>
 
     <script src="app.js"></script>
 </body>

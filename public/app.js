@@ -57,6 +57,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('login-form');
     const loginStatus = document.getElementById('login-status');
     
+    // Helper to get subfolder name from file metadata
+    function getSubfolderName(f) {
+        if (f.subfolder && f.subfolder.trim()) {
+            return f.subfolder.trim();
+        }
+        if (f.safeFolder && f.safeFolder.includes('/')) {
+            const parts = f.safeFolder.split('/');
+            if (parts.length > 1 && parts[1]) {
+                return parts[1];
+            }
+        }
+        const year = f.uploadDate ? new Date(f.uploadDate).getFullYear() : new Date().getFullYear();
+        return (f.folder || 'Misc').replace(/\s+/g, '') + '_' + year;
+    }
+
     // UI Elements
     const filesBody = document.getElementById('files-body');
     const searchInput = document.getElementById('search-input');
@@ -67,6 +82,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnBack = document.getElementById('btn-back');
     const btnLoadMore = document.getElementById('btn-load-more');
     const btnBackupFolder = document.getElementById('btn-backup-folder');
+    const btnMoveSubfolder = document.getElementById('btn-move-subfolder');
+
+    // Subfolder Upload Controls
+    const uploadFolderSelect = document.getElementById('upload-folder-select');
+    const uploadSubfolderSelect = document.getElementById('upload-subfolder-select');
+    const newSubfolderContainer = document.getElementById('new-subfolder-container');
+    const uploadNewSubfolder = document.getElementById('upload-new-subfolder');
+
+    // Move Subfolder Modal Elements
+    const moveSubfolderModal = document.getElementById('move-subfolder-modal');
+    const modalSubfolderName = document.getElementById('modal-subfolder-name');
+    const moveTargetFolderSelect = document.getElementById('move-target-folder-select');
+    const btnCancelMove = document.getElementById('btn-cancel-move');
+    const btnConfirmMove = document.getElementById('btn-confirm-move');
+
+    let moveContext = { currentFolder: null, subfolder: null };
 
     // Auth Initialization
     function checkAuth() {
@@ -203,8 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <span>Zipping Folder...</span>
         `;
         try {
-            const subfolderYear = currentActiveSubfolder.split('_')[1] || '';
-            const downloadUrl = `/api/backup-zip?token=${encodeURIComponent(authHeader)}&folder=${encodeURIComponent(currentActiveFolder)}&year=${encodeURIComponent(subfolderYear)}`;
+            const downloadUrl = `/api/backup-zip?token=${encodeURIComponent(authHeader)}&folder=${encodeURIComponent(currentActiveFolder)}&subfolder=${encodeURIComponent(currentActiveSubfolder)}`;
             const response = await fetchAuth(downloadUrl);
             if (!response.ok) {
                 const errData = await response.json();
@@ -307,6 +337,137 @@ document.addEventListener('DOMContentLoaded', () => {
         loadFiles();
     });
 
+    // Subfolder Dropdown Population
+    function updateUploadSubfolderOptions() {
+        if (!uploadFolderSelect || !uploadSubfolderSelect) return;
+        const selectedMainFolder = uploadFolderSelect.value;
+        const defaultSubName = selectedMainFolder.replace(/\s+/g, '') + '_' + new Date().getFullYear();
+        
+        const folderFiles = allFiles.filter(f => f.folder === selectedMainFolder);
+        const subSet = new Set();
+        folderFiles.forEach(f => {
+            const sub = getSubfolderName(f);
+            if (sub) subSet.add(sub);
+        });
+        
+        uploadSubfolderSelect.innerHTML = '';
+        
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '__default__';
+        defaultOpt.textContent = `Default (${defaultSubName})`;
+        uploadSubfolderSelect.appendChild(defaultOpt);
+        
+        const existingSubs = Array.from(subSet).sort();
+        existingSubs.forEach(sub => {
+            if (sub !== defaultSubName) {
+                const opt = document.createElement('option');
+                opt.value = sub;
+                opt.textContent = sub;
+                uploadSubfolderSelect.appendChild(opt);
+            }
+        });
+
+        const newOpt = document.createElement('option');
+        newOpt.value = '__new__';
+        newOpt.textContent = '+ Create New Subfolder...';
+        uploadSubfolderSelect.appendChild(newOpt);
+
+        newSubfolderContainer.classList.add('hidden');
+        uploadNewSubfolder.value = '';
+        uploadNewSubfolder.removeAttribute('required');
+    }
+
+    if (uploadFolderSelect) {
+        uploadFolderSelect.addEventListener('change', () => {
+            updateUploadSubfolderOptions();
+        });
+    }
+
+    if (uploadSubfolderSelect) {
+        uploadSubfolderSelect.addEventListener('change', () => {
+            if (uploadSubfolderSelect.value === '__new__') {
+                newSubfolderContainer.classList.remove('hidden');
+                uploadNewSubfolder.setAttribute('required', 'required');
+                uploadNewSubfolder.focus();
+            } else {
+                newSubfolderContainer.classList.add('hidden');
+                uploadNewSubfolder.removeAttribute('required');
+                uploadNewSubfolder.value = '';
+            }
+        });
+    }
+
+    // Move Subfolder Modal Handlers
+    function openMoveSubfolderModal(folder, subfolder) {
+        if (currentRole !== 'Master') return;
+        moveContext = { currentFolder: folder, subfolder: subfolder };
+        modalSubfolderName.textContent = `'${subfolder}' (from ${folder})`;
+        
+        moveTargetFolderSelect.innerHTML = '';
+        FOLDERS.forEach(f => {
+            if (f.name !== folder) {
+                const opt = document.createElement('option');
+                opt.value = f.name;
+                opt.textContent = f.name;
+                moveTargetFolderSelect.appendChild(opt);
+            }
+        });
+
+        moveSubfolderModal.classList.remove('hidden');
+    }
+
+    if (btnCancelMove) {
+        btnCancelMove.addEventListener('click', () => {
+            moveSubfolderModal.classList.add('hidden');
+        });
+    }
+
+    if (btnMoveSubfolder) {
+        btnMoveSubfolder.addEventListener('click', () => {
+            if (currentActiveFolder && currentActiveSubfolder) {
+                openMoveSubfolderModal(currentActiveFolder, currentActiveSubfolder);
+            }
+        });
+    }
+
+    if (btnConfirmMove) {
+        btnConfirmMove.addEventListener('click', async () => {
+            const targetFolder = moveTargetFolderSelect.value;
+            if (!targetFolder || !moveContext.currentFolder || !moveContext.subfolder) return;
+
+            btnConfirmMove.disabled = true;
+            btnConfirmMove.textContent = 'Moving...';
+
+            try {
+                const res = await fetchAuth('/api/move-subfolder', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        currentFolder: moveContext.currentFolder,
+                        subfolder: moveContext.subfolder,
+                        targetFolder: targetFolder
+                    })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    alert(data.message || 'Subfolder moved successfully!');
+                    moveSubfolderModal.classList.add('hidden');
+                    currentActiveSubfolder = null;
+                    await loadFiles();
+                } else {
+                    alert(data.error || 'Failed to move subfolder');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error moving subfolder');
+            } finally {
+                btnConfirmMove.disabled = false;
+                btnConfirmMove.textContent = 'Move Subfolder';
+            }
+        });
+    }
+
     // File Upload
     const uploadForm = document.getElementById('upload-form');
     const uploadBtn = document.getElementById('upload-btn');
@@ -329,7 +490,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        let selectedSubfolder = '';
+        if (uploadSubfolderSelect.value === '__new__') {
+            selectedSubfolder = uploadNewSubfolder.value.trim();
+            if (!selectedSubfolder) {
+                showStatus('Please enter a name for the new subfolder.', 'error');
+                return;
+            }
+        } else if (uploadSubfolderSelect.value !== '__default__') {
+            selectedSubfolder = uploadSubfolderSelect.value;
+        }
+
         const formData = new FormData(uploadForm);
+        if (selectedSubfolder) {
+            formData.append('subfolder', selectedSubfolder);
+        }
         
         setLoading(true);
         showStatus('', ''); // clear
@@ -345,7 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 showStatus('File uploaded successfully!', 'success');
                 uploadForm.reset();
-                loadFiles(); // Refresh table and dashboard
+                await loadFiles(); // Refresh table, subfolders, and dashboard
             } else {
                 showStatus(result.error || 'Upload failed.', 'error');
             }
@@ -375,6 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
             allFiles = await response.json();
             allFiles.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
             
+            updateUploadSubfolderOptions();
             renderDashboard();
             applyCurrentFilter();
         } catch (error) {
@@ -415,30 +591,51 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         } else {
             const folderFiles = allFiles.filter(f => f.folder === currentActiveFolder);
-            const yearsSet = new Set(folderFiles.map(f => f.uploadDate ? new Date(f.uploadDate).getFullYear() : new Date().getFullYear()));
-            if (yearsSet.size === 0) {
-                yearsSet.add(new Date().getFullYear());
+            const subMap = new Map();
+
+            folderFiles.forEach(f => {
+                const subName = getSubfolderName(f);
+                if (!subMap.has(subName)) {
+                    subMap.set(subName, []);
+                }
+                subMap.get(subName).push(f);
+            });
+
+            const defaultSubName = currentActiveFolder.replace(/\s+/g, '') + '_' + new Date().getFullYear();
+            if (subMap.size === 0) {
+                subMap.set(defaultSubName, []);
             }
-            const years = Array.from(yearsSet).sort((a, b) => b - a);
 
-            years.forEach(year => {
-                const subfolderName = currentActiveFolder.replace(/\s+/g, '') + '_' + year;
-                const count = folderFiles.filter(f => (f.uploadDate ? new Date(f.uploadDate).getFullYear() : new Date().getFullYear()) === year).length;
+            const subNames = Array.from(subMap.keys()).sort();
 
+            subNames.forEach(subName => {
+                const count = (subMap.get(subName) || []).length;
                 const card = document.createElement('div');
-                card.className = `subfolder-card ${currentActiveSubfolder === subfolderName ? 'active' : ''}`;
+                card.className = `subfolder-card ${currentActiveSubfolder === subName ? 'active' : ''}`;
+                card.style.position = 'relative';
+
+                let moveBtnHtml = '';
+                if (currentRole === 'Master') {
+                    moveBtnHtml = `<button class="btn-card-move-sub" style="position: absolute; top: 8px; right: 8px; background: rgba(79, 70, 229, 0.1); border: 1px solid var(--border-color); color: var(--primary-color); border-radius: 4px; padding: 2px 6px; font-size: 0.75rem; cursor: pointer;" title="Move Subfolder">Move</button>`;
+                }
 
                 card.innerHTML = `
+                    ${moveBtnHtml}
                     <svg class="folder-icon" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                     </svg>
-                    <div class="folder-title">${escapeHtml(subfolderName)}</div>
+                    <div class="folder-title" style="padding-right: 25px;">${escapeHtml(subName)}</div>
                     <div class="folder-count">${count} file${count !== 1 ? 's' : ''}</div>
                 `;
 
-                card.addEventListener('click', () => {
+                card.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('btn-card-move-sub')) {
+                        e.stopPropagation();
+                        openMoveSubfolderModal(currentActiveFolder, subName);
+                        return;
+                    }
                     visibleCount = 5;
-                    currentActiveSubfolder = subfolderName;
+                    currentActiveSubfolder = subName;
                     renderDashboard();
                     applyCurrentFilter();
                 });
@@ -464,13 +661,15 @@ document.addEventListener('DOMContentLoaded', () => {
             dashboardGrid.classList.add('hidden');
             btnBack.classList.add('hidden');
             btnBackupFolder.classList.add('hidden');
+            if (btnMoveSubfolder) btnMoveSubfolder.classList.add('hidden');
             
             filteredFiles = allFiles.filter(file => 
                 (file.originalname && file.originalname.toLowerCase().includes(query)) ||
                 (file.year && file.year.toString().includes(query)) ||
                 (file.remarks && file.remarks.toLowerCase().includes(query)) ||
                 (file.format && file.format.toLowerCase().includes(query)) ||
-                (file.folder && file.folder.toLowerCase().includes(query))
+                (file.folder && file.folder.toLowerCase().includes(query)) ||
+                (file.subfolder && file.subfolder.toLowerCase().includes(query))
             );
         } else if (currentActiveFolder) {
             if (currentActiveSubfolder) {
@@ -480,9 +679,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnBack.classList.remove('hidden');
                 btnBack.textContent = 'Back';
                 btnBackupFolder.classList.remove('hidden');
+                if (currentRole === 'Master' && btnMoveSubfolder) {
+                    btnMoveSubfolder.classList.remove('hidden');
+                } else if (btnMoveSubfolder) {
+                    btnMoveSubfolder.classList.add('hidden');
+                }
                 
-                const subYear = parseInt(currentActiveSubfolder.split('_')[1], 10);
-                filteredFiles = allFiles.filter(f => f.folder === currentActiveFolder && (f.uploadDate ? new Date(f.uploadDate).getFullYear() : new Date().getFullYear()) === subYear);
+                filteredFiles = allFiles.filter(f => f.folder === currentActiveFolder && getSubfolderName(f) === currentActiveSubfolder);
             } else {
                 tableTitle.textContent = `${currentActiveFolder}`;
                 colFolder.classList.add('hidden'); 
@@ -490,6 +693,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnBack.classList.remove('hidden');
                 btnBack.textContent = 'Back';
                 btnBackupFolder.classList.add('hidden');
+                if (btnMoveSubfolder) btnMoveSubfolder.classList.add('hidden');
                 
                 filteredFiles = allFiles.filter(f => f.folder === currentActiveFolder);
             }
@@ -499,6 +703,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dashboardGrid.classList.remove('hidden');
             btnBack.classList.add('hidden');
             btnBackupFolder.classList.add('hidden');
+            if (btnMoveSubfolder) btnMoveSubfolder.classList.add('hidden');
         }
 
         if (filteredFiles.length > visibleCount) {
