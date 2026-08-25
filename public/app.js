@@ -478,9 +478,16 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        const file = fileInput.files[0];
-        if (file && file.size > 100 * 1024 * 1024) {
-            showStatus('File size exceeds 100MB limit.', 'error');
+        const selectedFiles = Array.from(fileInput.files);
+        if (selectedFiles.length === 0) {
+            showStatus('Please select at least one file to upload.', 'error');
+            return;
+        }
+
+        const maxSizeBytes = 100 * 1024 * 1024;
+        const oversized = selectedFiles.filter(f => f.size > maxSizeBytes);
+        if (oversized.length > 0) {
+            showStatus(`File "${oversized[0].name}" exceeds 100MB limit.`, 'error');
             return;
         }
 
@@ -501,13 +508,19 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedSubfolder = uploadSubfolderSelect.value;
         }
 
-        const formData = new FormData(uploadForm);
+        const formData = new FormData();
+        selectedFiles.forEach(file => {
+            formData.append('files', file);
+        });
+        formData.append('folder', uploadFolderSelect.value);
         if (selectedSubfolder) {
             formData.append('subfolder', selectedSubfolder);
         }
-        
+        formData.append('year', yearVal);
+        formData.append('remarks', document.getElementById('remarks').value);
+
         setLoading(true);
-        showStatus('', ''); // clear
+        showStatus(`Uploading ${selectedFiles.length} file(s)...`, '');
 
         try {
             const response = await fetchAuth('/api/upload', {
@@ -518,9 +531,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
             
             if (response.ok) {
-                showStatus('File uploaded successfully!', 'success');
+                showStatus(result.message || 'File(s) uploaded successfully!', 'success');
                 uploadForm.reset();
-                await loadFiles(); // Refresh table, subfolders, and dashboard
+                await loadFiles();
             } else {
                 showStatus(result.error || 'Upload failed.', 'error');
             }

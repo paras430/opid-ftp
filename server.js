@@ -286,16 +286,19 @@ app.get('/api/files', async (req, res) => {
   }
 });
 
-app.post('/api/upload', upload.single('file'), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded or file exceeds 100MB limit.' });
+app.post('/api/upload', upload.any(), async (req, res) => {
+  const uploadedFilesList = req.files || (req.file ? [req.file] : []);
+  if (!uploadedFilesList || uploadedFilesList.length === 0) {
+    return res.status(400).json({ error: 'No files uploaded or file size limit exceeded.' });
   }
 
   const year = req.body.year || '';
   if (year && !/^\d{4}$/.test(year)) {
     try {
-      if (fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
+      for (const f of uploadedFilesList) {
+        if (fs.existsSync(f.path)) {
+          fs.unlinkSync(f.path);
+        }
       }
     } catch (err) {
       console.error('Failed to clean up temp file:', err);
@@ -304,7 +307,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   }
 
   let folder = req.body.folder || 'Misc';
-  if (folder === 'Letter/MOMs/Reports') folder = 'Letter/MOM/Report'; // fallback for old UI caches
+  if (folder === 'Letter/MOMs/Reports') folder = 'Letter/MOM/Report';
   const baseSafeFolder = FOLDER_MAP[folder] || 'Misc';
   const uploadDate = new Date().toISOString();
   const uploadYear = new Date(uploadDate).getFullYear();
@@ -319,42 +322,54 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   }
 
   const safeFolder = `${baseSafeFolder}/${subfolderName}`;
-  
-  // Now that we have the parsed req.body, move the file to the correct folder
   const folderPath = path.join(UPLOADS_DIR, baseSafeFolder, subfolderName);
   if (!fs.existsSync(folderPath)) {
     fs.mkdirSync(folderPath, { recursive: true });
   }
-  const tempPath = req.file.path;
-  const finalPath = path.join(folderPath, req.file.filename);
-  fs.renameSync(tempPath, finalPath);
 
-  const ext = path.extname(req.file.originalname).toLowerCase().replace('.', '');
-  const format = ext || 'unknown';
-
-  const fileData = {
-    id: Date.now().toString(),
-    filename: req.file.filename,
-    originalname: req.file.originalname,
-    size: req.file.size,
-    format: format,
-    folder: folder,
-    subfolder: subfolderName,
-    safeFolder: safeFolder,
-    projectId: req.body.projectId || '',
-    year: req.body.year || '',
-    remarks: req.body.remarks || '',
-    uploadDate: uploadDate,
-    uploader: req.user || 'Unknown'
-  };
-
+  const savedFiles = [];
   try {
-    await runQuery(`INSERT INTO files (id, filename, originalname, size, format, folder, safeFolder, projectId, year, remarks, uploadDate, uploader, subfolder) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-      [fileData.id, fileData.filename, fileData.originalname, fileData.size, fileData.format, fileData.folder, fileData.safeFolder, fileData.projectId, fileData.year, fileData.remarks, fileData.uploadDate, fileData.uploader, fileData.subfolder]
-    );
-    res.json({ message: 'File uploaded successfully', file: fileData });
+    for (let index = 0; index < uploadedFilesList.length; index++) {
+      const file = uploadedFilesList[index];
+      const tempPath = file.path;
+      const finalPath = path.join(folderPath, file.filename);
+      fs.renameSync(tempPath, finalPath);
+
+      const ext = path.extname(file.originalname).toLowerCase().replace('.', '');
+      const format = ext || 'unknown';
+      const fileId = (Date.now() + index).toString();
+
+      const fileData = {
+        id: fileId,
+        filename: file.filename,
+        originalname: file.originalname,
+        size: file.size,
+        format: format,
+        folder: folder,
+        subfolder: subfolderName,
+        safeFolder: safeFolder,
+        projectId: req.body.projectId || '',
+        year: req.body.year || '',
+        remarks: req.body.remarks || '',
+        uploadDate: uploadDate,
+        uploader: req.user || 'Unknown'
+      };
+
+      await runQuery(`INSERT INTO files (id, filename, originalname, size, format, folder, safeFolder, projectId, year, remarks, uploadDate, uploader, subfolder) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+        [fileData.id, fileData.filename, fileData.originalname, fileData.size, fileData.format, fileData.folder, fileData.safeFolder, fileData.projectId, fileData.year, fileData.remarks, fileData.uploadDate, fileData.uploader, fileData.subfolder]
+      );
+
+      savedFiles.push(fileData);
+    }
+
+    const message = savedFiles.length === 1 
+      ? 'File uploaded successfully' 
+      : `${savedFiles.length} files uploaded successfully`;
+
+    res.json({ message, files: savedFiles, file: savedFiles[0] });
   } catch (err) {
+    console.error('Error saving uploaded files:', err);
     res.status(500).json({ error: err.message });
   }
 });
