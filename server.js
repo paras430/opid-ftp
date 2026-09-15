@@ -571,9 +571,10 @@ app.put('/api/files/:filename', async (req, res) => {
       const pId = projectId !== undefined ? projectId : currentData.projectId;
       const yr = year !== undefined ? year : currentData.year;
       const rm = remarks !== undefined ? remarks : currentData.remarks;
+      const updatedUploadDate = remarks !== undefined ? new Date().toISOString().split('T')[0] : (currentData.uploadDate || new Date().toISOString().split('T')[0]);
 
-      await runQuery(`UPDATE files SET projectId = ?, year = ?, remarks = ?, folder = ?, safeFolder = ? WHERE filename = ?`, 
-        [pId, yr, rm, newFolder, newSafeFolder, filename]
+      await runQuery(`UPDATE files SET projectId = ?, year = ?, remarks = ?, folder = ?, safeFolder = ?, uploadDate = ? WHERE filename = ?`, 
+        [pId, yr, rm, newFolder, newSafeFolder, updatedUploadDate, filename]
       );
       
       res.json({ message: 'Metadata updated successfully' });
