@@ -32,9 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { name: 'Network', color: 'var(--c-blue)' },
         { name: 'Equipment', color: 'var(--c-green)' },
         { name: 'Letter/MOM/Report', color: 'var(--c-orange)' },
-      //  { name: 'Progress', color: 'var(--c-teal)' },
         { name: 'KML', color: 'var(--c-orange)' },
-       // { name: 'Survey Report', color: 'var(--c-indigo)' },
         { name: 'As-Built Reports', color: 'var(--c-amber)' },
         { name: 'Reference Docs', color: 'var(--c-pink)' },
         { name: 'Misc', color: 'var(--c-gray)' }
